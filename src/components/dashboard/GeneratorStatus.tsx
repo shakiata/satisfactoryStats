@@ -17,6 +17,7 @@ export function GeneratorStatus({ config, timeWindow }: Props) {
   const [generators, setGenerators] = useState<Generator[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const { getWindowAverage } = useTimeBuffer(generators);
 
@@ -84,15 +85,25 @@ export function GeneratorStatus({ config, timeWindow }: Props) {
     );
   }
 
-  const byType = new Map<string, { count: number; production: number; capacity: number }>();
+  const byType = new Map<string, { count: number; production: number; capacity: number; gens: Generator[] }>();
   for (const g of generators) {
     const type = g.ClassName.replace('Build_', '').replace('_C', '').replace('Generator', '');
-    const entry = byType.get(type) || { count: 0, production: 0, capacity: 0 };
+    const entry = byType.get(type) || { count: 0, production: 0, capacity: 0, gens: [] };
     entry.count++;
     entry.production += g.PowerProductionPotential;
     entry.capacity += g.ProductionCapacity;
+    entry.gens.push(g);
     byType.set(type, entry);
   }
+
+  const toggleGroup = (type: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -127,63 +138,69 @@ export function GeneratorStatus({ config, timeWindow }: Props) {
         <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: theme.textPrimary }}>
           Generator Types ({byType.size})
         </h3>
-        <div className="grid gap-2">
-          {Array.from(byType.entries()).map(([type, data]) => (
-            <div key={type} className="rounded-lg p-3" style={{ backgroundColor: theme.bgPrimary, border: `1px solid ${theme.borderColor}` }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-medium" style={{ color: theme.textPrimary }}>{type}</span>
-                <span className="text-xs" style={{ color: theme.textSecondary }}>{data.count} units</span>
-              </div>
-              <div className="flex gap-4 text-xs font-mono">
-                <span style={{ color: theme.success }}>Output: {data.production >= 1000 ? `${(data.production / 1000).toFixed(1)} GW` : `${data.production.toFixed(0)} MW`}</span>
-                <span style={{ color: theme.info }}>Capacity: {data.capacity >= 1000 ? `${(data.capacity / 1000).toFixed(1)} GW` : `${data.capacity.toFixed(0)} MW`}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Individual Generators */}
-      <div className="rounded-xl p-6" style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.borderColor}` }}>
-        <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: theme.textPrimary }}>
-          All Generators ({generators.length})
-        </h3>
-        <div className="grid gap-2">
-          {generators.slice(0, 50).map((g, i) => (
-            <div key={g.ID || i} className="rounded-lg p-3" style={{ backgroundColor: theme.bgPrimary, border: `1px solid ${theme.borderColor}` }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm" style={{ color: theme.textPrimary }}>{g.Name}</span>
-                  {!g.IsFullSpeed && (
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.danger + '18', color: theme.danger, border: `1px solid ${theme.danger}33` }}>
-                      Not at speed
+        <div className="space-y-2">
+          {Array.from(byType.entries()).map(([type, data]) => {
+            const isOpen = expanded.has(type);
+            return (
+              <div key={type} className="rounded-lg overflow-hidden" style={{ backgroundColor: theme.bgPrimary, border: `1px solid ${theme.borderColor}` }}>
+                {/* Group header */}
+                <button
+                  onClick={() => toggleGroup(type)}
+                  className="w-full flex items-center justify-between p-3 text-left hover:brightness-110 transition-colors"
+                  style={{ backgroundColor: theme.bgPrimary }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs" style={{ color: theme.textSecondary }}>
+                      {isOpen ? '▼' : '▶'}
                     </span>
-                  )}
-                </div>
-                <span className="text-xs font-mono" style={{ color: theme.textSecondary }}>
-                  Load: {g.LoadPercentage.toFixed(0)}%
-                </span>
+                    <div>
+                      <span className="text-sm font-medium" style={{ color: theme.textPrimary }}>{type}</span>
+                      <span className="text-xs ml-2" style={{ color: theme.textSecondary }}>{data.count} unit{data.count !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 text-xs font-mono">
+                    <span style={{ color: theme.success }}>Output: {data.production >= 1000 ? `${(data.production / 1000).toFixed(1)} GW` : `${data.production.toFixed(0)} MW`}</span>
+                    <span style={{ color: theme.info }}>Capacity: {data.capacity >= 1000 ? `${(data.capacity / 1000).toFixed(1)} GW` : `${data.capacity.toFixed(0)} MW`}</span>
+                  </div>
+                </button>
+                {/* Expanded list */}
+                {isOpen && (
+                  <div className="grid gap-2 p-3 pt-0">
+                    {data.gens.map((g, i) => (
+                      <div key={g.ID || i} className="rounded-lg p-3" style={{ backgroundColor: theme.bgSecondary, border: `1px solid ${theme.borderColor}` }}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm" style={{ color: theme.textPrimary }}>{g.Name}</span>
+                            {!g.IsFullSpeed && (
+                              <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.danger + '18', color: theme.danger, border: `1px solid ${theme.danger}33` }}>
+                                Not at speed
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs font-mono" style={{ color: theme.textSecondary }}>
+                            Load: {g.LoadPercentage.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full overflow-hidden border" style={{ backgroundColor: theme.bgCard, borderColor: theme.borderColor }}>
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${g.LoadPercentage}%`,
+                              backgroundColor: g.LoadPercentage > 90 ? theme.success : g.LoadPercentage > 50 ? theme.accent : theme.info,
+                            }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-4 mt-1.5 text-xs" style={{ color: theme.textSecondary }}>
+                          {g.FuelResource && <span>⛽ {g.FuelResource}: {g.FuelAmount?.toFixed(0)}</span>}
+                          <span>⚡ {g.PowerProductionPotential >= 1000 ? `${(g.PowerProductionPotential / 1000).toFixed(1)} GW` : `${g.PowerProductionPotential.toFixed(0)} MW`}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="h-2 rounded-full overflow-hidden border" style={{ backgroundColor: theme.bgSecondary, borderColor: theme.borderColor }}>
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${g.LoadPercentage}%`,
-                    backgroundColor: g.LoadPercentage > 90 ? theme.success : g.LoadPercentage > 50 ? theme.accent : theme.info,
-                  }}
-                />
-              </div>
-              <div className="flex items-center gap-4 mt-1.5 text-xs" style={{ color: theme.textSecondary }}>
-                {g.FuelResource && <span>⛽ {g.FuelResource}: {g.FuelAmount?.toFixed(0)}</span>}
-                <span>⚡ {g.PowerProductionPotential >= 1000 ? `${(g.PowerProductionPotential / 1000).toFixed(1)} GW` : `${g.PowerProductionPotential.toFixed(0)} MW`}</span>
-              </div>
-            </div>
-          ))}
-          {generators.length > 50 && (
-            <p className="text-xs text-center mt-2" style={{ color: theme.textSecondary }}>
-              Showing 50 of {generators.length} generators
-            </p>
-          )}
+            );
+          })}
         </div>
       </div>
     </div>

@@ -266,20 +266,14 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
 
   const totalProd = displayItems.reduce((s, i) => s + i.CurrentProd, 0);
   const totalCons = displayItems.reduce((s, i) => s + i.CurrentConsumed, 0);
+  const netBalance = totalProd - totalCons;
 
   return (
     <div className="space-y-6">
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl p-4" style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.borderColor}` }}>
-          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: theme.textSecondary }}>Total Items</p>
-          <p className="text-2xl font-bold font-mono" style={{ color: theme.textPrimary }}>{displayItems.length}</p>
-          {timeWindow > 0 && (
-            <p className="text-[10px] mt-0.5" style={{ color: theme.accent }}>avg · {periodLabel}</p>
-          )}
-        </div>
-        <div className="rounded-xl p-4" style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.borderColor}` }}>
-          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: theme.textSecondary }}>Total Prod/min</p>
+          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: theme.textSecondary }}>Total Production</p>
           <p className="text-2xl font-bold font-mono" style={{ color: theme.success }}>
             {formatRate(totalProd)}
           </p>
@@ -288,9 +282,18 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
           )}
         </div>
         <div className="rounded-xl p-4" style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.borderColor}` }}>
-          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: theme.textSecondary }}>Total Cons/min</p>
+          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: theme.textSecondary }}>Total Consumption</p>
           <p className="text-2xl font-bold font-mono" style={{ color: theme.danger }}>
             {formatRate(totalCons)}
+          </p>
+          {timeWindow > 0 && (
+            <p className="text-[10px] mt-0.5" style={{ color: theme.accent }}>avg · {periodLabel}</p>
+          )}
+        </div>
+        <div className="rounded-xl p-4" style={{ backgroundColor: theme.bgCard, border: `1px solid ${netBalance >= 0 ? theme.success : theme.danger}33` }}>
+          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: theme.textSecondary }}>Net Balance</p>
+          <p className="text-2xl font-bold font-mono" style={{ color: netBalance >= 0 ? theme.success : theme.danger }}>
+            {netBalance >= 0 ? '+' : ''}{formatRate(netBalance)}
           </p>
           {timeWindow > 0 && (
             <p className="text-[10px] mt-0.5" style={{ color: theme.accent }}>avg · {periodLabel}</p>
@@ -398,8 +401,10 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
                   <span className="font-mono" style={{ color: theme.success }}>{formatRate(item.CurrentProd)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Max</span>
-                  <span className="font-mono">{formatRate(item.MaxProd)}</span>
+                  <span>Net</span>
+                  <span className="font-mono" style={{ color: item.CurrentProd >= item.CurrentConsumed ? theme.success : theme.danger }}>
+                    {item.CurrentProd >= item.CurrentConsumed ? '+' : ''}{formatRate(item.CurrentProd - item.CurrentConsumed)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Cons{timeWindow > 0 ? ' avg' : ''}</span>

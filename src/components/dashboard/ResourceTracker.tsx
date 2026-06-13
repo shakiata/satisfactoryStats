@@ -18,6 +18,7 @@ export function ResourceTracker({ config, timeWindow }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const { getWindowAverage } = useTimeBuffer(extractors);
 
@@ -46,6 +47,33 @@ export function ResourceTracker({ config, timeWindow }: Props) {
     if (timeWindow === 0 || !extractors) return compute(extractors ?? []);
     return getWindowAverage(timeWindow, (batch) => batch ? compute(batch) : 0);
   }, [extractors, timeWindow, getWindowAverage]);
+
+  const filtered = useMemo(() =>
+    (extractors ?? []).filter((e) =>
+      !search ||
+      e.Name.toLowerCase().includes(search.toLowerCase()) ||
+      (e.Recipe && e.Recipe.toLowerCase().includes(search.toLowerCase())) ||
+      e.production?.some(p => p.Name.toLowerCase().includes(search.toLowerCase()))
+    ),
+  [extractors, search]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Extractor[]>();
+    for (const e of filtered) {
+      const type = e.ClassName
+        .replace('Build_', '')
+        .replace('_C', '')
+        .replace('Miner', '')
+        .replace('Resource', '')
+        .replace('Extractor', '')
+        || e.Recipe?.split(':')[0] || 'Other';
+      const list = map.get(type) || [];
+      list.push(e);
+      map.set(type, list);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b));
+  }, [filtered]);
 
   if (loading) {
     return (
@@ -80,12 +108,14 @@ export function ResourceTracker({ config, timeWindow }: Props) {
   const pausedCount = extractors.filter(e => e.IsPaused).length;
   const idleCount = extractors.filter(e => !e.IsProducing && !e.IsPaused).length;
 
-  const filtered = extractors.filter((e) =>
-    !search ||
-    e.Name.toLowerCase().includes(search.toLowerCase()) ||
-    (e.Recipe && e.Recipe.toLowerCase().includes(search.toLowerCase())) ||
-    e.production?.some(p => p.Name.toLowerCase().includes(search.toLowerCase()))
-  );
+  const toggleGroup = (type: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -122,57 +152,91 @@ export function ResourceTracker({ config, timeWindow }: Props) {
         onBlur={(e) => (e.target.style.borderColor = theme.borderColor)}
       />
 
-      {/* Extractor List */}
-      <div className="grid gap-2">
-        {filtered.map((e, i) => (
-          <div
-            key={e.ID || i}
-            className="rounded-xl p-4"
-            style={{
-              backgroundColor: theme.bgCard,
-              border: `1px solid ${e.IsProducing ? theme.success + '33' : e.IsPaused ? theme.accent + '33' : theme.borderColor}`,
-            }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <span className="text-sm font-medium" style={{ color: theme.textPrimary }}>{e.Name}</span>
-                {e.Recipe && (
-                  <span className="text-xs ml-2" style={{ color: theme.textSecondary }}>— {e.Recipe}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {e.IsProducing ? (
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: theme.success + '18', color: theme.success, border: `1px solid ${theme.success}33` }}>Active</span>
-                ) : e.IsPaused ? (
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: theme.accent + '18', color: theme.accent, border: `1px solid ${theme.accent}33` }}>Paused</span>
-                ) : (
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: '#3a3a3e18', color: theme.textSecondary, border: `1px solid ${theme.borderColor}` }}>Idle</span>
-                )}
-                {e.PowerShards > 0 && (
-                  <span className="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                    {e.PowerShards}x Shard
+      {/* Extractor List — grouped by type */}
+      <div className="space-y-3">
+        {grouped.map(([type, extractors]) => {
+          const isOpen = expanded.has(type);
+          const typeProd = extractors.reduce((s, e) => s + (e.production?.reduce((sum, p) => sum + p.CurrentProd, 0) ?? 0), 0);
+          return (
+            <div key={type} className="rounded-xl overflow-hidden" style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.borderColor}` }}>
+              {/* Group header */}
+              <button
+                onClick={() => toggleGroup(type)}
+                className="w-full flex items-center justify-between p-4 text-left hover:brightness-110 transition-colors"
+                style={{ backgroundColor: theme.bgCard }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xs transition-transform" style={{ color: theme.textSecondary }}>
+                    {isOpen ? '▼' : '▶'}
                   </span>
-                )}
-              </div>
-            </div>
-            {e.production && e.production.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {e.production.map((p, j) => (
-                  <span key={j} className="text-xs rounded-lg px-2 py-1 font-mono" style={{ backgroundColor: theme.bgPrimary, border: `1px solid ${theme.borderColor}` }}>
-                    <span style={{ color: theme.textPrimary }}>{p.Name}</span>
-                    <span className="ml-1.5" style={{ color: theme.success }}>{Math.abs(p.CurrentProd) < 1 ? Math.round(p.CurrentProd) : p.CurrentProd.toFixed(1)}/min</span>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center gap-4 mt-2 text-xs" style={{ color: theme.textSecondary }}>
-              <span>Speed: {e.ManuSpeed}%</span>
-              {e.location && (
-                <span>📍 {e.location.x.toFixed(0)}, {e.location.y.toFixed(0)}, {e.location.z.toFixed(0)}</span>
+                  <div>
+                    <span className="text-sm font-semibold" style={{ color: theme.textPrimary }}>{type.replace(/([A-Z])/g, ' $1').trim()}</span>
+                    <span className="text-xs ml-2" style={{ color: theme.textSecondary }}>
+                      {extractors.length} extractor{extractors.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs font-mono" style={{ color: theme.info }}>
+                  {Math.abs(typeProd) < 1 ? Math.round(typeProd) : typeProd.toFixed(1)}/min
+                </span>
+              </button>
+              {/* Expanded list */}
+              {isOpen && (
+                <div className="grid gap-2 p-3 pt-0">
+                  {extractors.map((e, i) => (
+                    <div
+                      key={e.ID || i}
+                      className="rounded-lg p-3"
+                      style={{
+                        backgroundColor: theme.bgPrimary,
+                        border: `1px solid ${e.IsProducing ? theme.success + '33' : e.IsPaused ? theme.accent + '33' : theme.borderColor}`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <span className="text-sm font-medium" style={{ color: theme.textPrimary }}>{e.Name}</span>
+                          {e.Recipe && (
+                            <span className="text-xs ml-2" style={{ color: theme.textSecondary }}>— {e.Recipe}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {e.IsProducing ? (
+                            <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: theme.success + '18', color: theme.success, border: `1px solid ${theme.success}33` }}>Active</span>
+                          ) : e.IsPaused ? (
+                            <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: theme.accent + '18', color: theme.accent, border: `1px solid ${theme.accent}33` }}>Paused</span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: '#3a3a3e18', color: theme.textSecondary, border: `1px solid ${theme.borderColor}` }}>Idle</span>
+                          )}
+                          {e.PowerShards > 0 && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                              {e.PowerShards}x Shard
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {e.production && e.production.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {e.production.map((p, j) => (
+                            <span key={j} className="text-xs rounded-lg px-2 py-1 font-mono" style={{ backgroundColor: theme.bgSecondary, border: `1px solid ${theme.borderColor}` }}>
+                              <span style={{ color: theme.textPrimary }}>{p.Name}</span>
+                              <span className="ml-1.5" style={{ color: theme.success }}>{Math.abs(p.CurrentProd) < 1 ? Math.round(p.CurrentProd) : p.CurrentProd.toFixed(1)}/min</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 mt-2 text-xs" style={{ color: theme.textSecondary }}>
+                        <span>Speed: {e.ManuSpeed}%</span>
+                        {e.location && (
+                          <span>📍 {e.location.x.toFixed(0)}, {e.location.y.toFixed(0)}, {e.location.z.toFixed(0)}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
