@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FRMConfig, PowerCircuit } from '@/lib/types';
 import { fetchEndpoint } from '@/lib/api';
+import { useTheme } from '@/lib/useTheme';
 import { useTimeBuffer } from '@/lib/useTimeBuffer';
 import { TIME_WINDOWS, type TimeWindowMs } from '@/components/TimeWindowSelector';
 
@@ -15,8 +16,6 @@ function formatPower(mw: number): string {
   if (mw >= 1000) return `${(mw / 1000).toFixed(1)} GW`;
   return `${mw.toFixed(0)} MW`;
 }
-
-import { useTheme } from '@/lib/useTheme';
 
 function GaugeBar({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;

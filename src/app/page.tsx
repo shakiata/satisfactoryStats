@@ -9,6 +9,7 @@ import { FactoryEfficiency } from '@/components/dashboard/FactoryEfficiency';
 import { ResourceTracker } from '@/components/dashboard/ResourceTracker';
 import { GeneratorStatus } from '@/components/dashboard/GeneratorStatus';
 import { PlayerMap } from '@/components/dashboard/PlayerMap';
+import { FactoryMap } from '@/components/dashboard/FactoryMap';
 import { ChatPanel } from '@/components/dashboard/ChatPanel';
 import { SettingsPanel } from '@/components/dashboard/SettingsPanel';
 import { useConfig } from '@/lib/useConfig';
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'factory', label: '🏭 Factory', icon: '🏭' },
   { id: 'resources', label: '⛏️ Resources', icon: '⛏️' },
   { id: 'generators', label: '🔥 Generators', icon: '🔥' },
+  { id: 'map', label: '🗺️ Map', icon: '🗺️' },
   { id: 'players', label: '👤 Players', icon: '👤' },
   { id: 'chat', label: '💬 Chat', icon: '💬' },
   { id: 'settings', label: '🎨 Settings', icon: '🎨' },
@@ -166,6 +168,7 @@ export default function Home() {
             {activeTab === 'factory' && <FactoryEfficiency config={config} timeWindow={timeWindow} />}
             {activeTab === 'resources' && <ResourceTracker config={config} timeWindow={timeWindow} />}
             {activeTab === 'generators' && <GeneratorStatus config={config} timeWindow={timeWindow} />}
+            {activeTab === 'map' && <FactoryMap config={config} />}
             {activeTab === 'players' && <PlayerMap config={config} />}
             {activeTab === 'chat' && <ChatPanel config={config} />}
             {activeTab === 'settings' && <SettingsPanel config={config} saveConfig={saveConfig} />}

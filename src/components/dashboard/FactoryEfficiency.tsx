@@ -45,7 +45,7 @@ function summarizeBuildings(buildings: FactoryBuilding[]): BuildingSummary[] {
     producing: data.producing,
     paused: data.paused,
     idle: data.idle,
-    avgProductivity: data.total > 0 ? data.prodSum / data.total : 0,
+    avgProductivity: data.producing + data.paused + data.idle > 0 ? data.prodSum / (data.producing + data.paused + data.idle) : 0,
     avgPower: data.powerSum,
   }));
 }

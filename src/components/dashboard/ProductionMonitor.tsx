@@ -26,28 +26,31 @@ function nameToColor(name: string): string {
 }
 
 /* ─── ItemIcon — loads local icon from public/Icons/, badge turns green/red based on balance ─── */
-function ItemIcon({ className, name, prod, cons }: { config: FRMConfig; className: string; name: string; prod: number; cons: number }) {
+function ItemIcon({ className, name, prod, cons, size = 'md' }: { config: FRMConfig; className: string; name: string; prod: number; cons: number; size?: 'sm' | 'md' | 'lg' }) {
   const [errored, setErrored] = useState(false);
   const short = name.replace(/^Desc_/, '').replace(/_C$/, '');
   const initials = (short.match(/[A-Z]/g) || short.slice(0, 2).split('')).slice(0, 2).join('');
 
   const bg = prod > cons ? '#1a4d2e' : cons > prod ? '#5c1a1a' : nameToColor(className);
 
+  const sizes = { sm: { box: 'w-8 h-8', img: 'w-6 h-6', text: 'text-[10px]' }, md: { box: 'w-12 h-12', img: 'w-10 h-10', text: 'text-sm' }, lg: { box: 'w-16 h-16', img: 'w-14 h-14', text: 'text-base' } };
+  const s = sizes[size];
+
   return (
     <div
-      className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 relative overflow-hidden"
+      className={`${s.box} rounded-lg flex items-center justify-center shrink-0 relative overflow-hidden`}
       style={{ backgroundColor: errored ? nameToColor(className) : bg }}
     >
       {!errored && (
         <img
           src={`/Icons/${className}.png`}
           alt={name}
-          className="w-10 h-10 object-contain"
+          className={`${s.img} object-contain`}
           onError={() => setErrored(true)}
         />
       )}
       {errored && (
-        <span className="text-white font-bold text-sm drop-shadow-md select-none">
+        <span className={`text-white font-bold drop-shadow-md select-none ${s.text}`}>
           {initials}
         </span>
       )}
@@ -187,6 +190,7 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
   // Sort & filter state
   const [sortMode, setSortMode] = useState<'throughput' | 'prod' | 'cons' | 'name' | 'balance' | 'max'>('throughput');
   const [filterMode, setFilterMode] = useState<'all' | 'surplus' | 'deficit' | 'balanced'>('all');
+  const [cardScale, setCardScale] = useState<'sm' | 'md' | 'lg'>('md');
 
   const fetchData = useCallback(async () => {
     try {
@@ -317,6 +321,29 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
             )}
           </h3>
           <div className="flex flex-wrap items-center gap-2">
+            {/* Scale selector */}
+            <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: theme.borderColor }}>
+              {(['sm', 'md', 'lg'] as const).map((s) => {
+                const active = cardScale === s;
+                const labels: Record<string, string> = { sm: 'S', md: 'M', lg: 'L' };
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setCardScale(s)}
+                    className="text-[10px] font-medium px-2 py-1 transition-colors uppercase tracking-wide"
+                    style={{
+                      backgroundColor: active ? theme.accent + '22' : 'transparent',
+                      color: active ? theme.accent : theme.textSecondary,
+                      borderRight: s !== 'lg' ? `1px solid ${theme.borderColor}` : 'none',
+                    }}
+                    title={{ sm: 'Small', md: 'Medium', lg: 'Large' }[s]}
+                  >
+                    {labels[s]}
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Sort dropdown */}
             <select
               value={sortMode}
@@ -368,19 +395,27 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
             No items match the current filter
           </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className={
+            cardScale === 'sm' ? 'grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2' :
+            cardScale === 'lg' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5' :
+            'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4'
+          }>
           {sorted.map((item, i) => (
             <div
               key={item.ClassName || i}
-              className="rounded-lg p-3 flex flex-col items-center gap-2 transition-colors"
+              className={`rounded-lg flex flex-col items-center gap-2 transition-colors ${
+                cardScale === 'sm' ? 'p-2' : cardScale === 'lg' ? 'p-4' : 'p-3'
+              }`}
               style={{ backgroundColor: theme.bgSecondary, border: `1px solid ${theme.borderColor}` }}
             >
               {/* Item Icon */}
-              <ItemIcon config={config} className={item.ClassName} name={item.Name} prod={item.CurrentProd} cons={item.CurrentConsumed} />
+              <ItemIcon config={config} className={item.ClassName} name={item.Name} prod={item.CurrentProd} cons={item.CurrentConsumed} size={cardScale} />
 
               {/* Item Name */}
               <p
-                className="text-xs font-medium text-center leading-tight line-clamp-2"
+                className={`font-medium text-center leading-tight line-clamp-2 ${
+                  cardScale === 'sm' ? 'text-[10px]' : cardScale === 'lg' ? 'text-sm' : 'text-xs'
+                }`}
                 style={{ color: theme.textPrimary }}
                 title={item.Name}
               >
@@ -395,7 +430,12 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
               />
 
               {/* Detail lines */}
-              <div className="w-full text-[10px] space-y-0.5" style={{ color: theme.textSecondary }}>
+              <div
+                className={`w-full space-y-0.5 ${
+                  cardScale === 'sm' ? 'text-[8px]' : cardScale === 'lg' ? 'text-xs' : 'text-[10px]'
+                }`}
+                style={{ color: theme.textSecondary }}
+              >
                 <div className="flex justify-between">
                   <span>Prod{timeWindow > 0 ? ' avg' : ''}</span>
                   <span className="font-mono" style={{ color: theme.success }}>{formatRate(item.CurrentProd)}</span>
