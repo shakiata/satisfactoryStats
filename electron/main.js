@@ -86,14 +86,21 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     let url;
     try {
       const ngrok = require("ngrok");
-      const opts = { addr };
+      const opts = {
+        addr,
+        request_header_add: ["ngrok-skip-browser-warning:1"],
+      };
       if (authtoken) opts.authtoken = authtoken;
       url = await ngrok.connect(opts);
       ngrokUrl = url;
     } catch (npmErr) {
       // npm package failed (maybe no binary), try CLI
       const { spawn } = require("child_process");
-      const args = ["http", addr, "--log=stdout"];
+      const args = [
+        "http", addr,
+        "--log=stdout",
+        "--request-header-add", "ngrok-skip-browser-warning:1",
+      ];
       if (authtoken) args.push("--authtoken", authtoken);
 
       ngrokProcess = spawn("ngrok", args, {
@@ -103,14 +110,20 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
       // Parse the URL from stdout
       url = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error("ngrok timed out — is ngrok installed? Run: brew install ngrok / choco install ngrok"));
+          reject(
+            new Error(
+              "ngrok timed out — is ngrok installed? Run: brew install ngrok / choco install ngrok",
+            ),
+          );
         }, 15000);
 
         let output = "";
         ngrokProcess.stdout.on("data", (data) => {
           output += data.toString();
           // ngrok v3 prints a line like: Forwarding  https://abc123.ngrok-free.app -> http://localhost:8080
-          const match = output.match(/url=((https?:\/\/[^\s]+\.ngrok[^\s]*))|((https?:\/\/[^\s]+\.ngrok[^\s]*))/i);
+          const match = output.match(
+            /url=((https?:\/\/[^\s]+\.ngrok[^\s]*))|((https?:\/\/[^\s]+\.ngrok[^\s]*))/i,
+          );
           if (!match) {
             // Also try: Forwarding https://...
             const fwd = output.match(/Forwarding\s+(https?:\/\/[^\s]+)/);
