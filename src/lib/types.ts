@@ -26,6 +26,32 @@ export interface InventoryItem {
   MaxAmount: number;
 }
 
+/** Aggregated world inventory item — total across all storage (from getWorldInv) */
+export interface WorldInvItem {
+  Name: string;
+  ClassName: string;
+  Amount: number;
+  MaxAmount: number;
+}
+
+/** Per-container storage inventory (from getStorageInv) */
+export interface StorageContainer {
+  ID: string;
+  Name: string;
+  ClassName: string;
+  location: LocationData;
+  Inventory: InventoryItem[];
+  features?: Features;
+}
+
+/** Cloud / Dimensional Depot inventory item (from getCloudInv) */
+export interface CloudInvItem {
+  Name: string;
+  ClassName: string;
+  Amount: number;
+  MaxAmount: number;
+}
+
 export interface ProductionItem {
   Name: string;
   ClassName: string;

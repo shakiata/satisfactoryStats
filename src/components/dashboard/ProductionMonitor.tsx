@@ -74,7 +74,8 @@ function LEDBar({
 }) {
   // Auto-scale: find the magnitude and each bar = 1/10th of that
   const diff = Math.abs(prod - cons);
-  const scale = diff <= 0 ? 1 : Math.pow(10, Math.floor(Math.log10(diff)));
+  const magnitude = diff <= 0 ? 1 : Math.pow(10, Math.floor(Math.log10(diff)));
+  const scale = Math.max(1, magnitude);
   const bars = Math.min(10, Math.floor(diff / scale));
   const isGreen = prod > cons;
   const isRed = cons > prod;
@@ -160,7 +161,8 @@ function LEDBar({
       />
 
       {/* Scale label — what each bar represents */}
-      <text x={totalW / 2} y={segH + 16} textAnchor="middle" fontSize={7} fill={theme.textSecondary} opacity={0.6}>
+      <rect x={totalW / 2 - 14} y={segH + 9} width={28} height={14} rx={4} fill={theme.bgSecondary} opacity={0.8} />
+      <text x={totalW / 2} y={segH + 20} textAnchor="middle" fontSize={9} fontWeight={700} fill={theme.textSecondary}>
         ×{scale}
       </text>
 

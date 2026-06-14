@@ -72,6 +72,9 @@ const ENDPOINTS: EndpointInfo[] = [
   { path: 'getExplorationSink', category: 'session', description: 'Exploration sink statistics', requiresGameThread: false },
 
   // Inventory
+  { path: 'getWorldInv', category: 'inventory', description: 'Total aggregated inventory across all storage containers', requiresGameThread: false },
+  { path: 'getStorageInv', category: 'inventory', description: 'Storage container inventories (per container)', requiresGameThread: false },
+  { path: 'getCloudInv', category: 'inventory', description: 'Dimensional Depot (cloud) inventory', requiresGameThread: false },
   { path: 'getCrateInv', category: 'inventory', description: 'Crate inventories', requiresGameThread: true },
 
   // Research
@@ -101,7 +104,11 @@ export function getEndpointsByCategory(): Map<string, EndpointInfo[]> {
 export function buildUrl(config: FRMConfig, endpoint: string): string {
   const host = config.host || 'localhost';
   const port = config.port || '8080';
-  return `http://${host}:${port}/${endpoint}`;
+  // Auto-detect HTTPS for domain names (Cloudflare Tunnel, reverse proxies, etc.)
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
+  const scheme = isLocal ? 'http' : 'https';
+  const portPart = (port === '80' || port === '443' || port === '') ? '' : `:${port}`;
+  return `${scheme}://${host}${portPart}/${endpoint}`;
 }
 
 export async function fetchEndpoint<T = unknown>(config: FRMConfig, endpoint: string): Promise<T> {

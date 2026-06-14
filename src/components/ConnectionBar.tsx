@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FRMConfig } from '@/lib/types';
 import { useTheme } from '@/lib/useTheme';
 import { testConnection } from '@/lib/api';
@@ -16,6 +16,51 @@ interface ConnectionBarProps {
 
 export function ConnectionBar({ config, onConfigChange, onConnect, connected, connecting, error }: ConnectionBarProps) {
   const { theme } = useTheme();
+  const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+
+  // ─── ngrok tunnel state (Electron only) ───
+  const [tunnelUrl, setTunnelUrl] = useState<string | null>(null);
+  const [tunnelLoading, setTunnelLoading] = useState(false);
+  const [tunnelError, setTunnelError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Check for existing tunnel on mount
+  useEffect(() => {
+    if (isElectron && window.electronAPI) {
+      window.electronAPI.tunnelStatus().then((s) => {
+        if (s.active && s.url) setTunnelUrl(s.url);
+      });
+      window.electronAPI.onTunnelError((msg: string) => setTunnelError(msg));
+    }
+  }, [isElectron]);
+
+  const startTunnel = useCallback(async () => {
+    if (!window.electronAPI) return;
+    setTunnelLoading(true);
+    setTunnelError(null);
+    const result = await window.electronAPI.tunnelStart(config.host || 'localhost', config.port || '8080', undefined);
+    setTunnelLoading(false);
+    if (result.ok && result.url) {
+      setTunnelUrl(result.url);
+    } else {
+      setTunnelError(result.error || 'Failed to start tunnel');
+    }
+  }, [config.host, config.port]);
+
+  const stopTunnel = useCallback(async () => {
+    if (!window.electronAPI) return;
+    await window.electronAPI.tunnelStop();
+    setTunnelUrl(null);
+  }, []);
+
+  const copyUrl = useCallback(() => {
+    if (tunnelUrl) {
+      navigator.clipboard.writeText(tunnelUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [tunnelUrl]);
+
   return (
     <div className="p-4" style={{ backgroundColor: theme.bgSecondary, borderBottom: `1px solid ${theme.borderColor}` }}>
       <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-3">
@@ -112,6 +157,62 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
             </svg>
             {error}
+          </div>
+        )}
+
+        {/* ─── ngrok Tunnel (Electron only) ─── */}
+        {isElectron && (
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="h-6 w-px" style={{ backgroundColor: theme.borderColor }} />
+
+            {tunnelUrl ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: theme.success + '15', border: `1px solid ${theme.success}30` }}>
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: theme.success }} />
+                  <span className="text-xs font-mono truncate max-w-[260px]" style={{ color: theme.success }}>
+                    {tunnelUrl.replace('https://', '')}
+                  </span>
+                </div>
+                <button
+                  onClick={copyUrl}
+                  className="px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                  style={{ color: theme.accent, border: `1px solid ${theme.borderColor}` }}
+                  title="Copy URL"
+                >
+                  {copied ? '✓ Copied!' : '📋'}
+                </button>
+                <button
+                  onClick={stopTunnel}
+                  className="px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                  style={{ color: theme.danger, border: `1px solid ${theme.borderColor}` }}
+                  title="Stop tunnel"
+                >
+                  ⏹
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={startTunnel}
+                disabled={tunnelLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                style={{ backgroundColor: theme.accent + '18', color: theme.accent, border: `1px solid ${theme.accent}30` }}
+              >
+                {tunnelLoading ? (
+                  <>
+                    <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Starting…
+                  </>
+                ) : (
+                  <>🌐 Share</>
+                )}
+              </button>
+            )}
+            {tunnelError && (
+              <span className="text-[10px]" style={{ color: theme.danger }}>{tunnelError}</span>
+            )}
           </div>
         )}
       </div>
