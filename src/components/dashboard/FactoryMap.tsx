@@ -66,7 +66,7 @@ function mapToScreen(
 function classNameToIconPath(className: string): string | null {
   // Build_ConstructorMk1_C → Desc_ConstructorMk1_C.png
   const desc = className.replace(/^Build_/, 'Desc_');
-  return `/Icons/${desc}.png`;
+  return `./Icons/${desc}.png`;
 }
 
 export function FactoryMap({ config }: Props) {

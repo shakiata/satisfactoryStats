@@ -102,7 +102,14 @@ export function getEndpointsByCategory(): Map<string, EndpointInfo[]> {
 }
 
 export function buildUrl(config: FRMConfig, endpoint: string): string {
-  const host = config.host || 'localhost';
+  let host = (config.host || 'localhost').trim();
+  // Strip any scheme the user may have pasted (https://, http://)
+  host = host.replace(/^https?:\/\//, '');
+  // Strip trailing slashes
+  host = host.replace(/\/+$/, '');
+  // Strip port if embedded in host (user pasted host:8080)
+  host = host.replace(/:\d+$/, '');
+  
   const port = config.port || '8080';
   // Auto-detect HTTPS for domain names (ngrok, Cloudflare Tunnel, reverse proxies, etc.)
   const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');

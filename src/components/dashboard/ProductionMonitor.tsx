@@ -43,7 +43,7 @@ function ItemIcon({ className, name, prod, cons, size = 'md' }: { config: FRMCon
     >
       {!errored && (
         <img
-          src={`/Icons/${className}.png`}
+          src={`./Icons/${className}.png`}
           alt={name}
           className={`${s.img} object-contain`}
           onError={() => setErrored(true)}
@@ -105,10 +105,11 @@ function LEDBar({
 
   return (
     <svg
-      width={totalW}
+      width="100%"
       height={h}
       viewBox={`0 0 ${totalW} ${h}`}
-      className="mx-auto overflow-visible"
+      preserveAspectRatio="xMidYMid meet"
+      className="mx-auto"
     >
       {/* Red segments — drawn right-to-left so index 0 is nearest centre */}
       {Array.from({ length: 10 }, (_, i) => {
@@ -405,7 +406,7 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
           {sorted.map((item, i) => (
             <div
               key={item.ClassName || i}
-              className={`rounded-lg flex flex-col items-center gap-2 transition-colors ${
+              className={`rounded-lg flex flex-col items-center gap-2 transition-colors min-w-0 overflow-hidden ${
                 cardScale === 'sm' ? 'p-2' : cardScale === 'lg' ? 'p-4' : 'p-3'
               }`}
               style={{ backgroundColor: theme.bgSecondary, border: `1px solid ${theme.borderColor}` }}

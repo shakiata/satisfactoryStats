@@ -13,7 +13,8 @@ interface Props {
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return n.toFixed(0);
+  if (n >= 1) return n.toFixed(0);
+  return n.toFixed(1);
 }
 
 /* ─── Item icon with fallback initials ─── */
@@ -26,7 +27,7 @@ function ItemIcon({ className, name }: { className: string; name: string }) {
     <div className="w-8 h-8 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--bg-secondary)' }}>
       {!errored && (
         <img
-          src={`/Icons/${className}.png`}
+          src={`./Icons/${className}.png`}
           alt={name}
           className="w-7 h-7 object-contain"
           onError={() => setErrored(true)}
@@ -110,9 +111,9 @@ export function InventoryPanel({ config }: Props) {
 
   const filteredWorld = useMemo(() => {
     if (!worldInv) return [];
-    if (!search) return worldInv.sort((a, b) => b.Amount - a.Amount);
+    if (!search) return [...worldInv].sort((a, b) => b.Amount - a.Amount);
     const q = search.toLowerCase();
-    return worldInv
+    return [...worldInv]
       .filter(i => i.Name.toLowerCase().includes(q) || i.ClassName.toLowerCase().includes(q))
       .sort((a, b) => b.Amount - a.Amount);
   }, [worldInv, search]);
@@ -172,7 +173,7 @@ export function InventoryPanel({ config }: Props) {
         <SummaryCard
           label="Containers"
           value={(storageContainers ?? []).length}
-          sub={`${(storageContainers ?? []).reduce((s, c) => s + (c.Inventory?.length ?? 0), 0)} stacks`}
+          sub={`${(storageContainers ?? []).reduce((s, c) => s + (c.Inventory?.length ?? 0), 0)} types`}
           color={theme.info}
         />
         <SummaryCard
@@ -266,7 +267,7 @@ export function InventoryPanel({ config }: Props) {
                         {item.MaxAmount > 0 ? stacks.toFixed(1) : '—'}
                       </td>
                       <td className="px-4 py-2 hidden sm:table-cell">
-                        {item.MaxAmount > 0 && <FillBar amount={item.Amount} max={item.MaxAmount * 10} />}
+                        {item.MaxAmount > 0 && <FillBar amount={item.Amount} max={item.MaxAmount} />}
                       </td>
                     </tr>
                   );
