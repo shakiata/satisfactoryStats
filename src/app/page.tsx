@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import pkg from '../../package.json';
 import { ConnectionBar } from '@/components/ConnectionBar';
 import { EndpointList } from '@/components/EndpointList';
 import { PowerDashboard } from '@/components/dashboard/PowerDashboard';
@@ -188,7 +189,7 @@ export default function Home() {
 
       {/* Footer */}
       <div className="px-6 py-2 text-center text-xs" style={{ backgroundColor: 'var(--bg-secondary)', borderTop: '1px solid var(--border-color)', color: 'var(--muted)' }}>
-        Statusfactory v1.0.0 — Powered by Ficsit Remote Monitoring
+        Statusfactory v{pkg.version} — Powered by Ficsit Remote Monitoring
       </div>
     </div>
     </ThemeProvider>

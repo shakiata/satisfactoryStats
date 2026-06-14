@@ -117,6 +117,10 @@ export async function fetchEndpoint<T = unknown>(config: FRMConfig, endpoint: st
   if (config.password) {
     headers['X-FRM-Authorization'] = config.password;
   }
+  // Bypass ngrok's browser warning interstitial for free-tier tunnels
+  if (config.host?.includes('.ngrok')) {
+    headers['ngrok-skip-browser-warning'] = '1';
+  }
   const response = await fetch(url, { headers });
   if (!response.ok) {
     throw new Error(`FRM API error: ${response.status} ${response.statusText}`);
@@ -141,6 +145,10 @@ export async function sendChatMessage(config: FRMConfig, message: string): Promi
   };
   if (config.password) {
     headers['X-FRM-Authorization'] = config.password;
+  }
+  // Bypass ngrok's browser warning interstitial for free-tier tunnels
+  if (config.host?.includes('.ngrok')) {
+    headers['ngrok-skip-browser-warning'] = '1';
   }
   const response = await fetch(url, {
     method: 'POST',

@@ -97,9 +97,11 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
       // npm package failed (maybe no binary), try CLI
       const { spawn } = require("child_process");
       const args = [
-        "http", addr,
+        "http",
+        addr,
         "--log=stdout",
-        "--request-header-add", "ngrok-skip-browser-warning:1",
+        "--request-header-add",
+        "ngrok-skip-browser-warning:1",
       ];
       if (authtoken) args.push("--authtoken", authtoken);
 
