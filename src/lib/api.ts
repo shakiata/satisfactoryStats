@@ -104,10 +104,11 @@ export function getEndpointsByCategory(): Map<string, EndpointInfo[]> {
 export function buildUrl(config: FRMConfig, endpoint: string): string {
   const host = config.host || 'localhost';
   const port = config.port || '8080';
-  // Auto-detect HTTPS for domain names (Cloudflare Tunnel, reverse proxies, etc.)
+  // Auto-detect HTTPS for domain names (ngrok, Cloudflare Tunnel, reverse proxies, etc.)
   const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
   const scheme = isLocal ? 'http' : 'https';
-  const portPart = (port === '80' || port === '443' || port === '') ? '' : `:${port}`;
+  // Only append port for local connections — domain-based tunnels handle port mapping themselves
+  const portPart = isLocal && port !== '80' && port !== '443' && port !== '' ? `:${port}` : '';
   return `${scheme}://${host}${portPart}/${endpoint}`;
 }
 
