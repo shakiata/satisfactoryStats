@@ -9,7 +9,36 @@
     "start": "next start",
     "electron:dev": "concurrently -k \"next dev\" \"wait-on http://localhost:3000 && electron . --dev\"",
     "electron:build": "next build && electron-builder",
+    "electron:build:win": "next build && electron-builder --win",
+    "electron:build:linux": "next build && electron-builder --linux",
     "electron:start": "next build && electron ."
+  },
+  "build": {
+    "appId": "com.satisfactory.stats",
+    "productName": "Statusfactory",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "electron/**/*"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "public/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icon.png",
+      "category": "Utility"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.png"
+    }
   },
   "dependencies": {
     "next": "^15.0.0",

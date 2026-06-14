@@ -1,7 +1,19 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, nativeTheme } = require("electron");
 const path = require("path");
+const fs = require("fs");
+
+// Follow the OS dark/light mode preference
+nativeTheme.themeSource = "system";
 
 let mainWindow;
+
+function getIconPath() {
+  // In dev: electron/ → ../public/icon.png
+  // In packaged asar: electron/ → ../out/icon.png (Next.js copies public/ into out/)
+  const devIcon = path.join(__dirname, "../public/icon.png");
+  const prodIcon = path.join(__dirname, "../out/icon.png");
+  return fs.existsSync(devIcon) ? devIcon : prodIcon;
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -10,7 +22,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "Statusfactory",
-    icon: path.join(__dirname, "../public/icon.png"),
+    icon: getIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -34,11 +46,19 @@ function createWindow() {
     loadDev();
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, "../out/index.html"));
+    const indexPath = path.join(__dirname, "../out/index.html");
+    mainWindow.loadFile(indexPath);
   }
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+
+  // Inject dark color-scheme meta tag so CSS media queries and browser chrome follow dark mode
+  mainWindow.webContents.on("did-finish-load", () => {
+    mainWindow.webContents.insertCSS(`
+      :root { color-scheme: dark; }
+    `);
   });
 }
 

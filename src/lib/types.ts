@@ -5,13 +5,6 @@ export interface FRMConfig {
   refreshRate: number;
 }
 
-export interface EndpointInfo {
-  path: string;
-  category: string;
-  description: string;
-  requiresGameThread: boolean;
-}
-
 export interface LocationData {
   x: number;
   y: number;
