@@ -33,42 +33,12 @@ npm run electron:build
 # Output in /dist/
 ```
 
-## Adding Item Icons
+To build for a specific platform:
 
-Statusfactory ships with **no icons** — they are excluded from git because they're extracted from the game itself. To add them:
-
-### 1. Generate icons in single-player
-
-1. Launch Satisfactory with the FRM mod installed
-2. Load your save
-3. Open the chat console (`~`) and run:
-   ```
-   /frm icon
-   ```
-4. Look for "Icon Generation Completed" in chat
-
-### 2. Copy icons into the project
-
-| OS                 | FRM Icons folder                                                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Windows**        | `%LocalAppData%\FactoryGame\Saved\Mods\FicsitRemoteMonitoring\Icons\`                                                                        |
-| **Linux (Proton)** | `~/.steam/steam/steamapps/compatdata/526870/pfx/drive_c/users/steamuser/Local Settings/FactoryGame/Saved/Mods/FicsitRemoteMonitoring/Icons/` |
-
-Copy the entire `Icons` folder into:
-
+```bash
+npm run electron:build:linux    # AppImage
+npm run electron:build:win      # Windows .exe
 ```
-public/Icons/
-```
-
-So you end up with:
-
-```
-public/Icons/Desc_IronIngot_C.png
-public/Icons/Desc_CopperIngot_C.png
-...
-```
-
-> **Note:** The `public/Icons/` folder is gitignored. Every developer who clones the repo must repeat these steps.
 
 ## Configuration
 
@@ -79,3 +49,29 @@ Point Statusfactory at your FRM web server:
 3. Hit **Connect**
 
 FRM web server setup: `/frm http start` in the Satisfactory chat console.
+
+## 🌐 Sharing with Friends (ngrok Tunnel)
+
+If you host your game locally (not on a dedicated server), your FRM server is only accessible on your LAN. The **🌐 Share** button in the Electron app creates a public URL so friends can connect from anywhere.
+
+### One-time setup
+
+1. Download and install **[ngrok](https://ngrok.com/download)** on your machine
+   - Windows: `choco install ngrok` or download the `.exe` from ngrok.com
+   - Linux: `snap install ngrok` or download from ngrok.com
+2. Sign up for a **free** [ngrok account](https://dashboard.ngrok.com/signup)
+3. Get your authtoken from [dashboard.ngrok.com/get-started/your-authtoken](https://dashboard.ngrok.com/get-started/your-authtoken)
+4. Run once:
+   ```bash
+   ngrok config add-authtoken YOUR_TOKEN
+   ```
+
+### How it works
+
+1. You click **🌐 Share** in the Statusfactory connection bar
+2. A public URL appears (e.g. `abc123.ngrok-free.dev`)
+3. Click **📋** to copy it and send it to your friends
+4. Your friends paste the URL into their Statusfactory app as the **Host**, enter the FRM auth token, and click Connect
+5. They're now viewing your factory stats through the tunnel — no port forwarding, no VPN, no IP sharing
+
+> **Note:** Your ngrok authtoken stays on your machine only — nothing is embedded in the app. The free tier works indefinitely but has a "visit warning" page that Statusfactory automatically bypasses. Each tunnel restart gives you a new URL.
