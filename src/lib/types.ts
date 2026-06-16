@@ -244,6 +244,35 @@ export const DEFAULT_THEME: DashboardTheme = {
   muted: '#606060',
 };
 
+/** Train station (from getTrainStation / getVehicles) */
+export interface TrainStation extends BuildableBase {
+  station_type?: 'freight' | 'empty' | 'fluid';
+  cargo?: InventoryItem[];
+  fuel?: InventoryItem[];
+  coupled_train_id?: string;
+}
+
+/** Freight car (wagon) attached to a train */
+export interface FreightCar {
+  ID: string;
+  Name: string;
+  ClassName: string;
+  vehicle_type?: string;
+  cargo?: InventoryItem[];
+  fuel?: InventoryItem[];
+}
+
+/** Train / locomotive (from getVehicles — filtered for train types) */
+export interface TrainVehicle extends Vehicle {
+  train_name?: string;
+  autopilot?: boolean;
+  self_driving?: boolean;
+  speed_kmh?: number;
+  train_station_id?: string;
+  train_station_name?: string;
+  freight_cars?: FreightCar[];
+}
+
 export interface PlayerData {
   ID: string;
   Name: string;

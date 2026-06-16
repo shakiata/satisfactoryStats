@@ -13,6 +13,7 @@ import { PlayerMap } from '@/components/dashboard/PlayerMap';
 import { FactoryMap } from '@/components/dashboard/FactoryMap';
 import { InventoryPanel } from '@/components/dashboard/InventoryPanel';
 import { ChatPanel } from '@/components/dashboard/ChatPanel';
+import { TrainControlTower } from '@/components/dashboard/TrainControlTower';
 import { SettingsPanel } from '@/components/dashboard/SettingsPanel';
 import { useConfig } from '@/lib/useConfig';
 import { ThemeProvider, useTheme } from '@/lib/useTheme';
@@ -26,6 +27,7 @@ const TABS = [
   { id: 'resources', label: '⛏️ Resources', icon: '⛏️' },
   { id: 'generators', label: '🔥 Generators', icon: '🔥' },
   { id: 'map', label: '🗺️ Map', icon: '🗺️' },
+  { id: 'trains', label: '🚂 Trains', icon: '🚂' },
   { id: 'inventory', label: '📦 Inventory', icon: '📦' },
   { id: 'players', label: '👤 Players', icon: '👤' },
   { id: 'chat', label: '💬 Chat', icon: '💬' },
@@ -102,7 +104,7 @@ export default function Home() {
       />
 
       {/* Main Content */}
-      {!connected && !connecting && !error && (
+      {!connected && !connecting && (
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
             <div className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
@@ -172,6 +174,7 @@ export default function Home() {
             {activeTab === 'resources' && <ResourceTracker config={config} timeWindow={timeWindow} />}
             {activeTab === 'generators' && <GeneratorStatus config={config} timeWindow={timeWindow} />}
             {activeTab === 'map' && <FactoryMap config={config} />}
+            {activeTab === 'trains' && <TrainControlTower config={config} />}
             {activeTab === 'inventory' && <InventoryPanel config={config} />}
             {activeTab === 'players' && <PlayerMap config={config} />}
             {activeTab === 'chat' && <ChatPanel config={config} />}
