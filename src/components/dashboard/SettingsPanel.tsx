@@ -1,7 +1,8 @@
 'use client';
 
 import { useTheme } from '@/lib/useTheme';
-import { DashboardTheme, DEFAULT_THEME, FRMConfig } from '@/lib/types';
+import { useAppSettings } from '@/lib/useAppSettings';
+import { DashboardTheme, DEFAULT_THEME, DEFAULT_SETTINGS, FRMConfig } from '@/lib/types';
 import { defaultConfig } from '@/lib/useConfig';
 
 interface ColorRowProps {
@@ -105,10 +106,15 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ config, saveConfig }: SettingsPanelProps) {
   const { theme, updateTheme, resetTheme } = useTheme();
+  const { settings, saveSettings, resetSettings } = useAppSettings();
 
   const isDefault = Object.keys(DEFAULT_THEME).every(
     (k) => theme[k as keyof DashboardTheme] === DEFAULT_THEME[k as keyof DashboardTheme]
   );
+
+  const isSettingsDefault =
+    settings.iconSize === DEFAULT_SETTINGS.iconSize &&
+    settings.mapIconScale === DEFAULT_SETTINGS.mapIconScale;
 
   const RATE_OPTIONS = [
     { value: 1000, label: '1s' },
@@ -119,6 +125,12 @@ export function SettingsPanel({ config, saveConfig }: SettingsPanelProps) {
     { value: 15000, label: '15s' },
     { value: 30000, label: '30s' },
     { value: 60000, label: '60s' },
+  ];
+
+  const ICON_SIZE_OPTIONS = [
+    { value: 'sm' as const, label: 'Small' },
+    { value: 'md' as const, label: 'Medium' },
+    { value: 'lg' as const, label: 'Large' },
   ];
 
   return (
@@ -171,6 +183,71 @@ export function SettingsPanel({ config, saveConfig }: SettingsPanelProps) {
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* Appearance Settings */}
+      <div className="bg-[#141414] border border-[#2a2a2e] rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-[#f0f0f0] mb-4">Appearance</h3>
+
+        {/* Icon Size */}
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-[#f0f0f0]">Icon Size</p>
+            <p className="text-xs text-[#a0a0a0]">Card icon size for Production &amp; Inventory views</p>
+          </div>
+          <div className="flex rounded-lg overflow-hidden border border-[#2a2a2e]">
+            {ICON_SIZE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => saveSettings({ iconSize: opt.value })}
+                className="px-3 py-1.5 text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: settings.iconSize === opt.value ? theme.accent : '#0a0a0a',
+                  color: settings.iconSize === opt.value ? '#000' : theme.textSecondary,
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Map Icon Scale */}
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-[#f0f0f0]">Map Icon Scale</p>
+            <p className="text-xs text-[#a0a0a0]">Size of building icons on the Factory Map</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={settings.mapIconScale}
+              onChange={(e) => saveSettings({ mapIconScale: parseFloat(e.target.value) })}
+              className="w-24 h-1.5 rounded-full appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, ${theme.accent} 0%, ${theme.accent} ${((settings.mapIconScale - 0.5) / 1.5) * 100}%, ${theme.borderColor} ${((settings.mapIconScale - 0.5) / 1.5) * 100}%, ${theme.borderColor} 100%)`,
+                accentColor: theme.accent,
+              }}
+            />
+            <span className="text-xs font-mono text-[#f0f0f0] w-8 text-right">{settings.mapIconScale.toFixed(1)}x</span>
+          </div>
+        </div>
+
+        {/* Reset Appearance */}
+        <div className="mt-3 pt-3 border-t border-[#2a2a2e]">
+          <button
+            onClick={resetSettings}
+            disabled={isSettingsDefault}
+            className="px-4 py-2 text-xs font-medium rounded-lg border transition-all
+              bg-[#0a0a0a] border-[#2a2a2e] text-[#f0f0f0] hover:border-[#e74c3c] hover:text-[#e74c3c]
+              disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Reset Appearance
+          </button>
         </div>
       </div>
 

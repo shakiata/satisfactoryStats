@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { FRMConfig, TrainStation, TrainVehicle, FreightCar } from '@/lib/types';
+import { FRMConfig, TrainStation, TrainResponse, Railcar } from '@/lib/types';
 import { fetchEndpoint } from '@/lib/api';
 import { useTheme } from '@/lib/useTheme';
 
@@ -50,7 +50,7 @@ export function TrainControlTower({ config }: Props) {
   const { theme } = useTheme();
 
   const [stations, setStations] = useState<TrainStation[] | null>(null);
-  const [trains, setTrains] = useState<TrainVehicle[] | null>(null);
+  const [trains, setTrains] = useState<TrainResponse[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ type: 'train' | 'station'; id: string } | null>(null);
@@ -58,30 +58,13 @@ export function TrainControlTower({ config }: Props) {
 
   const fetchData = useCallback(async () => {
     try {
-      const [stationData, vehicleData] = await Promise.all([
+      const [stationData, trainData] = await Promise.all([
         fetchEndpoint<TrainStation[]>(config, 'getTrainStation'),
-        fetchEndpoint<TrainVehicle[]>(config, 'getVehicles'),
+        fetchEndpoint<TrainResponse[]>(config, 'getTrains'),
       ]);
 
       setStations(stationData ?? []);
-      // Filter for trains/locomotives only
-      const trainVehicles = (vehicleData ?? []).filter(
-        (v) =>
-          v.ClassName?.includes('Train') ||
-          v.ClassName?.includes('Loco') ||
-          v.ClassName?.includes('Wagon') ||
-          v.vehicle_type?.includes('train') ||
-          v.vehicle_type?.includes('loco') ||
-          v.vehicle_type?.includes('wagon') ||
-          v.train_name ||
-          v.freight_cars?.length
-      );
-      // Expand freight cars into flat list with parent train reference
-      const allTrains: TrainVehicle[] = [];
-      for (const v of trainVehicles) {
-        allTrains.push(v);
-      }
-      setTrains(allTrains);
+      setTrains(trainData ?? []);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to fetch rail data');
@@ -98,23 +81,26 @@ export function TrainControlTower({ config }: Props) {
 
   // ── Derived ──
   const activeTrains = useMemo(
-    () => (trains ?? []).filter((t) => t.autopilot || t.self_driving),
+    () => (trains ?? []).filter((t) => t.Status === 'Self-Driving'),
     [trains],
   );
   const totalCargo = useMemo(
     () =>
-      (stations ?? []).reduce(
-        (sum, s) => sum + (s.cargo ?? []).reduce((c, i) => c + i.Amount, 0),
+      (trains ?? []).reduce(
+        (sum, t) =>
+          sum +
+          (t.Vehicles ?? []).reduce(
+            (cs, v) => cs + (v.Inventory ?? []).reduce((c, i) => c + i.Amount, 0),
+            0,
+          ),
         0,
       ),
-    [stations],
-  );
-  const trainsWithFreight = useMemo(
-    () =>
-      (trains ?? []).filter(
-        (t) => t.freight_cars && t.freight_cars.length > 0,
-      ),
     [trains],
+  );
+
+  const stationsWithTrains = useMemo(
+    () => (stations ?? []).filter((s) => (trains ?? []).some((t) => t.TrainStation === s.Name)),
+    [stations, trains],
   );
 
   // ── Loading / Error ──
@@ -160,7 +146,6 @@ export function TrainControlTower({ config }: Props) {
           <div className="flex-1 overflow-auto">
             <DeparturesBoard
               trains={activeTrains}
-              stations={stations ?? []}
               selected={selected}
               onSelect={(id) => setSelected(selected?.id === id && selected?.type === 'train' ? null : { type: 'train', id })}
               showAll={showAllTrains}
@@ -192,7 +177,10 @@ export function TrainControlTower({ config }: Props) {
           </div>
           <div className="flex-1 overflow-auto p-3">
             {selected?.type === 'train' ? (
-              <TrainDetail train={trains?.find((t) => t.ID === selected.id) ?? null} />
+              <TrainDetail
+                train={trains?.find((t) => t.ID === selected.id) ?? null}
+                onSelectStation={(id) => setSelected({ type: 'station', id })}
+              />
             ) : selected?.type === 'station' ? (
               <StationDetail station={stations?.find((s) => s.ID === selected.id) ?? null} />
             ) : (
@@ -274,26 +262,18 @@ function StatBlock({
    ═══════════════════════════════════════════════════════ */
 function DeparturesBoard({
   trains,
-  stations,
   selected,
   onSelect,
   showAll,
   onToggleAll,
 }: {
-  trains: TrainVehicle[];
-  stations: TrainStation[];
+  trains: TrainResponse[];
   selected: { type: 'train' | 'station'; id: string } | null;
   onSelect: (id: string) => void;
   showAll: boolean;
   onToggleAll: () => void;
 }) {
-  const stationMap = useMemo(() => {
-    const m = new Map<string, TrainStation>();
-    for (const s of stations) m.set(s.ID, s);
-    return m;
-  }, [stations]);
-
-  const displayTrains = showAll ? trains : trains.filter((t) => t.speed_kmh && t.speed_kmh > 1);
+  const displayTrains = showAll ? trains : trains.filter((t) => t.ForwardSpeed > 1);
 
   if (displayTrains.length === 0) {
     return (
@@ -325,9 +305,8 @@ function DeparturesBoard({
       <tbody>
         {displayTrains.map((train) => {
           const isSelected = selected?.type === 'train' && selected.id === train.ID;
-          const stationName = train.train_station_name ||
-            (train.train_station_id ? stationMap.get(train.train_station_id)?.Name : null);
-          const speed = train.speed_kmh ?? 0;
+          const stationName = train.TrainStation !== 'No Station' ? train.TrainStation : null;
+          const speed = train.ForwardSpeed ?? 0;
           const moving = speed > 1;
 
           return (
@@ -352,17 +331,17 @@ function DeparturesBoard({
                     className="w-1.5 h-1.5 rounded-full"
                     style={{ backgroundColor: moving ? CTRL_GREEN : '#333' }}
                   />
-                  {train.train_name || train.Name?.replace(/^Desc_/, '').replace(/_C$/, '').replace(/_/g, ' ') || 'Train'}
+                  {train.Name || 'Train'}
                 </div>
               </td>
               <td className="px-3 py-1.5 truncate max-w-[120px]" style={{ color: stationName ? (isSelected ? CTRL_GREEN : '#889') : '#333' }}>
-                {stationName ? cleanName(stationName) : '—'}
+                {stationName || '—'}
               </td>
               <td className="px-3 py-1.5 text-right" style={{ color: moving ? CTRL_GREEN : '#444' }}>
                 {moving ? fmtSpeed(speed) : '—'}
               </td>
               <td className="px-3 py-1.5 text-right" style={{ color: CTRL_AMBER }}>
-                {train.freight_cars?.length ?? 0}
+                {train.Vehicles?.length ?? 0}
               </td>
             </tr>
           );
@@ -383,7 +362,7 @@ function TrackMap({
   onSelectStation,
 }: {
   stations: TrainStation[];
-  trains: TrainVehicle[];
+  trains: TrainResponse[];
   selected: { type: 'train' | 'station'; id: string } | null;
   onSelectTrain: (id: string) => void;
   onSelectStation: (id: string) => void;
@@ -436,15 +415,6 @@ function TrackMap({
     setViewBox((vb) => ({ ...vb, w: newW, h: newH }));
   };
 
-  // Station coords map for drawing train→station connections
-  const stationCoords = useMemo(() => {
-    const m = new Map<string, [number, number]>();
-    for (const s of stations) {
-      if (s.location) m.set(s.ID, toSvg(s.location.x, s.location.z));
-    }
-    return m;
-  }, [stations, toSvg]);
-
   // Draw grid lines
   const gridLines = useMemo(() => {
     const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
@@ -479,14 +449,16 @@ function TrackMap({
 
       {/* Train → Station connection lines */}
       {trains.map((t) => {
-        if (!t.location || !t.train_station_id) return null;
-        const stationPt = stationCoords.get(t.train_station_id);
-        if (!stationPt) return null;
+        if (!t.location || !t.TrainStation || t.TrainStation === 'No Station') return null;
+        // Find matching station by name
+        const station = stations.find((s) => s.Name === t.TrainStation);
+        if (!station?.location) return null;
         const [tx, tz] = toSvg(t.location.x, t.location.z);
+        const [sx, sy] = toSvg(station.location.x, station.location.z);
         return (
           <line
             key={`conn-${t.ID}`}
-            x1={tx} y1={tz} x2={stationPt[0]} y2={stationPt[1]}
+            x1={tx} y1={tz} x2={sx} y2={sy}
             stroke={`${CTRL_GREEN}20`}
             strokeWidth={viewBox.w / 500}
             strokeDasharray={`${viewBox.w / 80},${viewBox.w / 100}`}
@@ -527,7 +499,7 @@ function TrackMap({
         if (!t.location) return null;
         const [tx, tz] = toSvg(t.location.x, t.location.z);
         const isSel = selected?.type === 'train' && selected.id === t.ID;
-        const moving = (t.speed_kmh ?? 0) > 1;
+        const moving = (t.ForwardSpeed ?? 0) > 1;
         const r = isSel ? viewBox.w / 50 : viewBox.w / 70;
         return (
           <g key={t.ID} onClick={() => onSelectTrain(t.ID)} className="cursor-pointer">
@@ -559,7 +531,7 @@ function TrackMap({
               fontFamily="monospace"
               style={{ userSelect: 'none' }}
             >
-              {t.train_name || 'Train'}
+              {t.Name || 'Train'}
             </text>
           </g>
         );
@@ -571,12 +543,13 @@ function TrackMap({
 /* ═══════════════════════════════════════════════════════
    Train Detail Panel
    ═══════════════════════════════════════════════════════ */
-function TrainDetail({ train }: { train: TrainVehicle | null }) {
+function TrainDetail({ train, onSelectStation }: { train: TrainResponse | null; onSelectStation: (id: string) => void }) {
   if (!train) {
     return <p className="text-[10px] opacity-40" style={{ color: CTRL_GREEN }}>Select a train</p>;
   }
 
-  const moving = (train.speed_kmh ?? 0) > 1;
+  const moving = (train.ForwardSpeed ?? 0) > 1;
+  const stationName = train.TrainStation && train.TrainStation !== 'No Station' ? train.TrainStation : null;
 
   return (
     <div className="space-y-3 text-[10px] font-mono">
@@ -584,31 +557,49 @@ function TrainDetail({ train }: { train: TrainVehicle | null }) {
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: moving ? CTRL_GREEN : '#333' }} />
         <span className="text-sm font-bold" style={{ color: CTRL_GREEN }}>
-          {train.train_name || cleanName(train.Name)}
+          {train.Name || 'Train'}
         </span>
       </div>
 
       {/* Status */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-        <DetailRow label="Status" value={moving ? 'EN ROUTE' : 'IDLE'} color={moving ? CTRL_GREEN : '#555'} />
-        <DetailRow label="Speed" value={moving ? `${fmtSpeed(train.speed_kmh ?? 0)} km/h` : '—'} color={moving ? CTRL_GREEN : '#555'} />
-        <DetailRow label="Autopilot" value={train.autopilot ? 'ON' : 'OFF'} color={train.autopilot ? CTRL_GREEN : '#555'} />
-        <DetailRow label="Station" value={train.train_station_name ? cleanName(train.train_station_name) : '—'} color={CTRL_AMBER} />
+        <DetailRow label="Status" value={train.Status ?? 'Unknown'} color={moving ? CTRL_GREEN : '#555'} />
+        <DetailRow label="Speed" value={moving ? `${fmtSpeed(train.ForwardSpeed ?? 0)} km/h` : '—'} color={moving ? CTRL_GREEN : '#555'} />
+        <DetailRow label="Docking" value={train.Docking ? 'YES' : 'NO'} color={train.Docking ? CTRL_GREEN : '#555'} />
+        <DetailRow label="Station" value={stationName ?? '—'} color={CTRL_AMBER} />
         <DetailRow label="Location" value={train.location ? `${train.location.x.toFixed(0)}, ${train.location.z.toFixed(0)}` : '—'} color="#667" />
       </div>
 
-      {/* Freight Cars */}
-      {train.freight_cars && train.freight_cars.length > 0 && (
+      {/* TimeTable */}
+      {train.TimeTable && train.TimeTable.length > 0 && (
         <div>
           <div className="flex items-center gap-1 mb-2">
-            <span className="text-[9px] uppercase tracking-widest opacity-50" style={{ color: CTRL_AMBER }}>
-              Freight ({train.freight_cars.length})
+            <span className="text-[9px] uppercase tracking-widest opacity-50" style={{ color: CTRL_GREEN }}>
+              Timetable
             </span>
           </div>
-          <div className="space-y-1">
-            {train.freight_cars.map((car, i) => (
-              <FreightCarRow key={car.ID || i} car={car} index={i} />
-            ))}
+          <div className="space-y-0.5">
+            {train.TimeTable.map((stop, i) => {
+              const isCurrent = i === train.TimeTableIndex;
+              return (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-2 py-1 rounded text-[9px]"
+                  style={{
+                    backgroundColor: isCurrent ? `${CTRL_GREEN}10` : 'transparent',
+                    color: isCurrent ? CTRL_GREEN : '#556',
+                  }}
+                >
+                  <span className="w-4 text-right opacity-40">{i + 1}</span>
+                  <span>{cleanName(stop)}</span>
+                  {isCurrent && (
+                    <span className="ml-auto text-[8px] px-1 rounded" style={{ backgroundColor: `${CTRL_GREEN}20`, color: CTRL_GREEN }}>
+                      NOW
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -630,25 +621,6 @@ function DetailRow({
       <span className="opacity-50" style={{ color }}>{label}</span>
       <span className="text-right" style={{ color }}>{value}</span>
     </>
-  );
-}
-
-function FreightCarRow({ car, index }: { car: FreightCar; index: number }) {
-  const totalCargo = (car.cargo ?? []).reduce((sum, i) => sum + i.Amount, 0);
-  const isFluid = car.Name?.toLowerCase().includes('fluid') || car.ClassName?.includes('Fluid');
-
-  return (
-    <div className="flex items-center justify-between px-2 py-1 rounded" style={{ backgroundColor: `${CTRL_GREEN}08` }}>
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="text-[9px] opacity-40" style={{ color: CTRL_GREEN }}>#{index + 1}</span>
-        <span className="truncate" style={{ color: '#889' }}>
-          {car.Name ? cleanName(car.Name) : isFluid ? 'Fluid Wagon' : 'Freight Car'}
-        </span>
-      </div>
-      <span className="font-bold shrink-0" style={{ color: totalCargo > 0 ? CTRL_AMBER : '#333' }}>
-        {fmtNum(totalCargo)}
-      </span>
-    </div>
   );
 }
 
@@ -708,7 +680,7 @@ function OverviewPanel({
   trains,
 }: {
   stations: TrainStation[];
-  trains: TrainVehicle[];
+  trains: TrainResponse[];
 }) {
   const topStations = [...stations]
     .sort((a, b) => (b.cargo ?? []).reduce((s, i) => s + i.Amount, 0) - (a.cargo ?? []).reduce((s, i) => s + i.Amount, 0))

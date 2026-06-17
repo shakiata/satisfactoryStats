@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { FRMConfig, FactoryBuilding, Generator, Extractor, Player } from '@/lib/types';
+import { FRMConfig, FactoryBuilding, Generator, Extractor, Player, AppSettings } from '@/lib/types';
 import { fetchEndpoint } from '@/lib/api';
 import { useTheme } from '@/lib/useTheme';
 
 interface Props {
   config: FRMConfig;
+  settings: AppSettings;
+  saveSettings: (partial: Partial<AppSettings>) => void;
 }
 
 interface MapPoint {
@@ -69,7 +71,7 @@ function classNameToIconPath(className: string): string | null {
   return `./Icons/${desc}.png`;
 }
 
-export function FactoryMap({ config }: Props) {
+export function FactoryMap({ config, settings, saveSettings }: Props) {
   const { theme } = useTheme();
 
   const [factories, setFactories] = useState<FactoryBuilding[] | null>(null);
@@ -94,9 +96,7 @@ export function FactoryMap({ config }: Props) {
   // Map image (loaded async, drawn on canvas)
   const mapImageRef = useRef<HTMLImageElement | null>(null);
 
-  const [visibleLayers, setVisibleLayers] = useState<Set<string>>(
-    new Set(LAYERS.map(l => l.id)),
-  );
+  const visibleLayers = new Set(settings.mapVisibleLayers);
 
   // ─── Preload map image ─────────────────────────────────
 
@@ -276,7 +276,7 @@ export function FactoryMap({ config }: Props) {
     }
 
     // ── Draw building icons ──
-    const iconSize = Math.max(16, Math.min(48, 32 * s.scale / 0.02));
+    const iconSize = Math.max(16, Math.min(48, 32 * s.scale / 0.02 * settings.mapIconScale));
     const playerRadius = Math.max(6, iconSize * 0.5);
 
     const layerOrder: MapPoint['type'][] = ['extractor', 'factory', 'generator', 'player'];
@@ -353,7 +353,7 @@ export function FactoryMap({ config }: Props) {
       ctx.textAlign = 'center';
       ctx.fillText(`${barWorld}m`, barX + barPx / 2, barY - 8);
     }
-  }, [points, visibleLayers, theme, getIcon]);
+  }, [points, visibleLayers, theme, getIcon, settings.mapIconScale]);
 
   // ─── Animation loop ────────────────────────────────────
 
@@ -435,12 +435,10 @@ export function FactoryMap({ config }: Props) {
   // Wheel handler is attached manually via useEffect (see above)
 
   const toggleLayer = (id: string) => {
-    setVisibleLayers(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(visibleLayers);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    saveSettings({ mapVisibleLayers: Array.from(next) });
   };
 
   // Fit to bounds

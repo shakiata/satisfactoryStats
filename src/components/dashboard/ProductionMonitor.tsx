@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { FRMConfig, ProdStatItem } from '@/lib/types';
+import { FRMConfig, ProdStatItem, AppSettings } from '@/lib/types';
 import { fetchEndpoint } from '@/lib/api';
 import { useTheme } from '@/lib/useTheme';
 import { useTimeBuffer, averageProdStats, type ProdStatSnapshot } from '@/lib/useTimeBuffer';
@@ -10,6 +10,7 @@ import { TIME_WINDOWS, type TimeWindowMs } from '@/components/TimeWindowSelector
 interface Props {
   config: FRMConfig;
   timeWindow: TimeWindowMs;
+  settings: AppSettings;
 }
 
 function formatRate(v: number): string {
@@ -181,7 +182,7 @@ function LEDBar({
 /* ══════════════════════════════════════════════════════════════
    ProductionMonitor
    ══════════════════════════════════════════════════════════════ */
-export function ProductionMonitor({ config, timeWindow }: Props) {
+export function ProductionMonitor({ config, timeWindow, settings }: Props) {
   const { theme } = useTheme();
   const [items, setItems] = useState<ProdStatItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -193,7 +194,7 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
   // Sort & filter state
   const [sortMode, setSortMode] = useState<'throughput' | 'prod' | 'cons' | 'name' | 'balance' | 'max'>('throughput');
   const [filterMode, setFilterMode] = useState<'all' | 'surplus' | 'deficit' | 'balanced'>('all');
-  const [cardScale, setCardScale] = useState<'sm' | 'md' | 'lg'>('md');
+  const cardScale = settings.iconSize;
 
   const fetchData = useCallback(async () => {
     try {
@@ -324,29 +325,6 @@ export function ProductionMonitor({ config, timeWindow }: Props) {
             )}
           </h3>
           <div className="flex flex-wrap items-center gap-2">
-            {/* Scale selector */}
-            <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: theme.borderColor }}>
-              {(['sm', 'md', 'lg'] as const).map((s) => {
-                const active = cardScale === s;
-                const labels: Record<string, string> = { sm: 'S', md: 'M', lg: 'L' };
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setCardScale(s)}
-                    className="text-[10px] font-medium px-2 py-1 transition-colors uppercase tracking-wide"
-                    style={{
-                      backgroundColor: active ? theme.accent + '22' : 'transparent',
-                      color: active ? theme.accent : theme.textSecondary,
-                      borderRight: s !== 'lg' ? `1px solid ${theme.borderColor}` : 'none',
-                    }}
-                    title={{ sm: 'Small', md: 'Medium', lg: 'Large' }[s]}
-                  >
-                    {labels[s]}
-                  </button>
-                );
-              })}
-            </div>
-
             {/* Sort dropdown */}
             <select
               value={sortMode}

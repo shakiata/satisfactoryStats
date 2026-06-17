@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { FRMConfig, WorldInvItem, StorageContainer, CloudInvItem } from '@/lib/types';
+import { FRMConfig, WorldInvItem, StorageContainer, CloudInvItem, AppSettings } from '@/lib/types';
 import { fetchEndpoint } from '@/lib/api';
 import { useTheme } from '@/lib/useTheme';
 
 interface Props {
   config: FRMConfig;
+  settings: AppSettings;
 }
 
 /* ─── Format large numbers ─── */
@@ -18,23 +19,30 @@ function fmt(n: number): string {
 }
 
 /* ─── Item icon with fallback initials ─── */
-function ItemIcon({ className, name }: { className: string; name: string }) {
+function ItemIcon({ className, name, size = 'md' }: { className: string; name: string; size?: 'sm' | 'md' | 'lg' }) {
   const [errored, setErrored] = useState(false);
   const short = name.replace(/^Desc_/, '').replace(/_C$/, '');
   const initials = (short.match(/[A-Z]/g) || short.slice(0, 2).split('')).slice(0, 2).join('');
 
+  const sizes = {
+    sm: { box: 'w-6 h-6', img: 'w-5 h-5', text: 'text-[8px]' },
+    md: { box: 'w-8 h-8', img: 'w-7 h-7', text: 'text-xs' },
+    lg: { box: 'w-10 h-10', img: 'w-9 h-9', text: 'text-sm' },
+  };
+  const s = sizes[size];
+
   return (
-    <div className="w-8 h-8 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+    <div className={`${s.box} rounded flex items-center justify-center shrink-0`} style={{ backgroundColor: 'var(--bg-secondary)' }}>
       {!errored && (
         <img
           src={`./Icons/${className}.png`}
           alt={name}
-          className="w-7 h-7 object-contain"
+          className={`${s.img} object-contain`}
           onError={() => setErrored(true)}
         />
       )}
       {errored && (
-        <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
+        <span className={`${s.text} font-bold`} style={{ color: 'var(--text-secondary)' }}>
           {initials}
         </span>
       )}
@@ -65,7 +73,7 @@ function FillBar({ amount, max }: { amount: number; max: number }) {
 }
 
 /* ─── Main Component ─── */
-export function InventoryPanel({ config }: Props) {
+export function InventoryPanel({ config, settings }: Props) {
   const { theme } = useTheme();
 
   // ── State ──
@@ -253,7 +261,7 @@ export function InventoryPanel({ config }: Props) {
                     >
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
-                          <ItemIcon className={item.ClassName} name={item.Name} />
+                          <ItemIcon className={item.ClassName} name={item.Name} size={settings.iconSize} />
                           <span style={{ color: theme.textPrimary }}>{item.Name}</span>
                         </div>
                       </td>
@@ -345,7 +353,7 @@ export function InventoryPanel({ config }: Props) {
                             <tr key={item.ClassName} style={{ backgroundColor: j % 2 === 0 ? theme.bgCard : theme.bgSecondary + '80' }}>
                               <td className="px-4 py-1.5">
                                 <div className="flex items-center gap-2">
-                                  <ItemIcon className={item.ClassName} name={item.Name} />
+                                  <ItemIcon className={item.ClassName} name={item.Name} size={settings.iconSize} />
                                   <span style={{ color: theme.textPrimary }}>{item.Name}</span>
                                 </div>
                               </td>

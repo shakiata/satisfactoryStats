@@ -53,6 +53,7 @@ const ENDPOINTS: EndpointInfo[] = [
   // Transport Stations
   { path: 'getDroneStation', category: 'transport', description: 'Drone Ports', requiresGameThread: false },
   { path: 'getTrainStation', category: 'transport', description: 'Train Stations', requiresGameThread: false },
+  { path: 'getTrains', category: 'transport', description: 'All trains with railcars, speed, and timetable', requiresGameThread: false },
   { path: 'getTruckStation', category: 'transport', description: 'Truck Stations', requiresGameThread: false },
 
   // Support Buildings

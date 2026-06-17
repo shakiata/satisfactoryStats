@@ -229,6 +229,27 @@ export interface DashboardTheme {
   muted: string;
 }
 
+export interface AppSettings {
+  /** Icon size for ProductionMonitor / Inventory cards */
+  iconSize: 'sm' | 'md' | 'lg';
+  /** Scale multiplier for icons on the Factory Map (0.5 – 2.0) */
+  mapIconScale: number;
+  /** Last active dashboard tab */
+  activeTab: string;
+  /** Last selected time window (ms), 0 = live */
+  timeWindow: number;
+  /** Visible layers on the Factory Map */
+  mapVisibleLayers: string[];
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  iconSize: 'md',
+  mapIconScale: 1,
+  activeTab: 'power',
+  timeWindow: 0,
+  mapVisibleLayers: ['factory', 'generator', 'extractor', 'player'],
+};
+
 export const DEFAULT_THEME: DashboardTheme = {
   bgPrimary: '#0a0a0a',
   bgSecondary: '#141414',
@@ -244,7 +265,7 @@ export const DEFAULT_THEME: DashboardTheme = {
   muted: '#606060',
 };
 
-/** Train station (from getTrainStation / getVehicles) */
+/** Train station (from getTrainStation) */
 export interface TrainStation extends BuildableBase {
   station_type?: 'freight' | 'empty' | 'fluid';
   cargo?: InventoryItem[];
@@ -252,25 +273,43 @@ export interface TrainStation extends BuildableBase {
   coupled_train_id?: string;
 }
 
-/** Freight car (wagon) attached to a train */
-export interface FreightCar {
+/** A single railcar (locomotive or freight wagon) from getTrains "Vehicles" array */
+export interface Railcar {
+  Name: string;
+  ClassName: string;
+  TotalMass: number;
+  PayloadMass: number;
+  MaxPayloadMass: number;
+  Inventory: InventoryItem[];
+}
+
+/** Raw train response from FRM getTrains endpoint */
+export interface TrainResponse {
   ID: string;
   Name: string;
   ClassName: string;
-  vehicle_type?: string;
-  cargo?: InventoryItem[];
-  fuel?: InventoryItem[];
-}
-
-/** Train / locomotive (from getVehicles — filtered for train types) */
-export interface TrainVehicle extends Vehicle {
-  train_name?: string;
-  autopilot?: boolean;
-  self_driving?: boolean;
-  speed_kmh?: number;
-  train_station_id?: string;
-  train_station_name?: string;
-  freight_cars?: FreightCar[];
+  location: LocationData;
+  TotalMass: number;
+  PayloadMass: number;
+  MaxPayloadMass: number;
+  /** Speed in km/h */
+  ForwardSpeed: number;
+  ThrottlePercent: number;
+  /** Current station name (string, not ID) */
+  TrainStation: string;
+  Derailed: boolean;
+  PendingDerail: boolean;
+  /** "Parked" | "Manual Driving" | "Self-Driving" | "Derailed" */
+  Status: string;
+  SelfDriving: string;
+  Docking: string;
+  Path: string;
+  TimeTable: { StationName: string }[];
+  TimeTableIndex: number;
+  /** Array of railcars (locomotives + freight wagons) */
+  Vehicles: Railcar[];
+  features?: Features;
+  PowerInfo?: PowerInfo;
 }
 
 export interface PlayerData {

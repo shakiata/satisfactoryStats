@@ -16,6 +16,7 @@ import { ChatPanel } from '@/components/dashboard/ChatPanel';
 import { TrainControlTower } from '@/components/dashboard/TrainControlTower';
 import { SettingsPanel } from '@/components/dashboard/SettingsPanel';
 import { useConfig } from '@/lib/useConfig';
+import { useAppSettings } from '@/lib/useAppSettings';
 import { ThemeProvider, useTheme } from '@/lib/useTheme';
 import { testConnection, getEndpoints, getEndpointsByCategory } from '@/lib/api';
 import { TimeWindowSelector, type TimeWindowMs } from '@/components/TimeWindowSelector';
@@ -39,11 +40,32 @@ type TabId = typeof TABS[number]['id'];
 
 export default function Home() {
   const { config, saveConfig, loaded } = useConfig();
+  const { settings, saveSettings, loaded: settingsLoaded } = useAppSettings();
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('power');
   const [timeWindow, setTimeWindow] = useState<TimeWindowMs>(0);
+
+  // Apply persisted settings once both config & settings are loaded
+  const [applied, setApplied] = useState(false);
+  if (!applied && loaded && settingsLoaded) {
+    setApplied(true);
+    if (TABS.some(t => t.id === settings.activeTab)) {
+      setActiveTab(settings.activeTab as TabId);
+    }
+    setTimeWindow(settings.timeWindow as TimeWindowMs);
+  }
+
+  const handleTabChange = (tab: TabId) => {
+    setActiveTab(tab);
+    saveSettings({ activeTab: tab });
+  };
+
+  const handleTimeWindowChange = (tw: TimeWindowMs) => {
+    setTimeWindow(tw);
+    saveSettings({ timeWindow: tw });
+  };
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -67,7 +89,7 @@ export default function Home() {
   const endpoints = getEndpoints();
   const categories = getEndpointsByCategory();
 
-  if (!loaded) {
+  if (!loaded || !settingsLoaded) {
     return null;
   }
 
@@ -139,7 +161,7 @@ export default function Home() {
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className="px-4 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-all"
                 style={{
                   borderColor: activeTab === tab.id ? 'var(--accent)' : 'transparent',
@@ -162,20 +184,20 @@ export default function Home() {
               </button>
             ))}
             <div className="ml-auto pr-2">
-              <TimeWindowSelector value={timeWindow} onChange={setTimeWindow} />
+              <TimeWindowSelector value={timeWindow} onChange={handleTimeWindowChange} />
             </div>
           </div>
 
           {/* Tab Content */}
           <div className="flex-1 overflow-auto p-6">
             {activeTab === 'power' && <PowerDashboard config={config} timeWindow={timeWindow} />}
-            {activeTab === 'production' && <ProductionMonitor config={config} timeWindow={timeWindow} />}
+            {activeTab === 'production' && <ProductionMonitor config={config} timeWindow={timeWindow} settings={settings} />}
             {activeTab === 'factory' && <FactoryEfficiency config={config} timeWindow={timeWindow} />}
             {activeTab === 'resources' && <ResourceTracker config={config} timeWindow={timeWindow} />}
             {activeTab === 'generators' && <GeneratorStatus config={config} timeWindow={timeWindow} />}
-            {activeTab === 'map' && <FactoryMap config={config} />}
+            {activeTab === 'map' && <FactoryMap config={config} settings={settings} saveSettings={saveSettings} />}
             {activeTab === 'trains' && <TrainControlTower config={config} />}
-            {activeTab === 'inventory' && <InventoryPanel config={config} />}
+            {activeTab === 'inventory' && <InventoryPanel config={config} settings={settings} />}
             {activeTab === 'players' && <PlayerMap config={config} />}
             {activeTab === 'chat' && <ChatPanel config={config} />}
             {activeTab === 'settings' && <SettingsPanel config={config} saveConfig={saveConfig} />}
