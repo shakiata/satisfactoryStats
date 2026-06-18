@@ -44,8 +44,11 @@ const IMG_WORLD_SOUTH = 468750;
 const IMG_WORLD_WIDTH = IMG_WORLD_EAST - IMG_WORLD_WEST;
 const IMG_WORLD_HEIGHT = IMG_WORLD_SOUTH - IMG_WORLD_NORTH;
 
-/* ─── coordinate helpers ─── */
-
+/**
+ * Converts Satisfactory world coordinates (Unreal cm) to map-pixel
+ * coordinates within the fixed MAP_SIZE × MAP_SIZE grid. Used to position
+ * buildings on the canvas before pan/zoom transforms are applied.
+ */
 function worldToMap(wx: number, wz: number): [number, number] {
   return [
     ((wx - MAP_MIN) / MAP_RANGE) * MAP_SIZE,
@@ -53,6 +56,11 @@ function worldToMap(wx: number, wz: number): [number, number] {
   ];
 }
 
+/**
+ * Applies pan (cx, cy) and zoom (scale) to map-pixel coordinates,
+ * converting them to screen-space canvas coordinates centered in the
+ * viewport. This is the final transform before drawing on the canvas.
+ */
 function mapToScreen(
   mx: number, my: number,
   cx: number, cy: number,
@@ -65,12 +73,23 @@ function mapToScreen(
   ];
 }
 
+/**
+ * Derives the icon file path from a Satisfactory building class name.
+ * Converts Build_ConstructorMk1_C → ./Icons/Desc_ConstructorMk1_C.png.
+ * Returns null if className is empty or undefined.
+ */
 function classNameToIconPath(className: string): string | null {
   // Build_ConstructorMk1_C → Desc_ConstructorMk1_C.png
   const desc = className.replace(/^Build_/, 'Desc_');
   return `./Icons/${desc}.png`;
 }
 
+/**
+ * Interactive canvas-based map showing factory buildings, generators,
+ * extractors, and players overlaid on the Satisfactory world map image.
+ * Supports pan-and-zoom via mouse drag/scroll, per-layer visibility
+ * toggles, building icons loaded from cache, and auto-centering on data.
+ */
 export function FactoryMap({ config, settings, saveSettings }: Props) {
   const { theme } = useTheme();
 

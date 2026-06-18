@@ -88,10 +88,12 @@ const ENDPOINTS: EndpointInfo[] = [
   { path: 'getCreatures', category: 'creatures', description: 'Creatures on the map', requiresGameThread: false },
 ];
 
+/** Returns the full list of FRM API endpoints with metadata. */
 export function getEndpoints(): EndpointInfo[] {
   return ENDPOINTS;
 }
 
+/** Returns endpoints grouped by category as a Map. */
 export function getEndpointsByCategory(): Map<string, EndpointInfo[]> {
   const map = new Map<string, EndpointInfo[]>();
   for (const ep of ENDPOINTS) {
@@ -120,6 +122,10 @@ export function buildUrl(config: FRMConfig, endpoint: string): string {
   return `${scheme}://${host}${portPart}/${endpoint}`;
 }
 
+/**
+ * Fetches data from an FRM endpoint with auth headers.
+ * Throws on non-OK responses. Generic T allows typed callers.
+ */
 export async function fetchEndpoint<T = unknown>(config: FRMConfig, endpoint: string): Promise<T> {
   const url = buildUrl(config, endpoint);
   const headers: Record<string, string> = { Accept: 'application/json' };
@@ -137,6 +143,7 @@ export async function fetchEndpoint<T = unknown>(config: FRMConfig, endpoint: st
   return response.json();
 }
 
+/** Tests connectivity to the FRM server by hitting the health endpoint. */
 export async function testConnection(config: FRMConfig): Promise<{ ok: boolean; error?: string }> {
   try {
     await fetchEndpoint(config, 'getPower');
@@ -146,6 +153,7 @@ export async function testConnection(config: FRMConfig): Promise<{ ok: boolean; 
   }
 }
 
+/** Sends a chat message to the FRM server for in-game delivery. */
 export async function sendChatMessage(config: FRMConfig, message: string): Promise<void> {
   const url = buildUrl(config, 'sendChatMessage');
   const headers: Record<string, string> = {

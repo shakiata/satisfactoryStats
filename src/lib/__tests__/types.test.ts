@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_SETTINGS,
   DEFAULT_THEME,
+  LIGHT_THEME,
 } from '../types';
 import type { AppSettings, DashboardTheme } from '../types';
 
@@ -15,6 +16,7 @@ import type { AppSettings, DashboardTheme } from '../types';
 describe('DEFAULT_SETTINGS', () => {
   it('has all required AppSettings fields', () => {
     const requiredKeys: (keyof AppSettings)[] = [
+      'themeMode',
       'iconSize',
       'mapIconScale',
       'activeTab',
@@ -50,6 +52,10 @@ describe('DEFAULT_SETTINGS', () => {
     expect(DEFAULT_SETTINGS.mapVisibleLayers).toContain('generator');
     expect(DEFAULT_SETTINGS.mapVisibleLayers).toContain('extractor');
     expect(DEFAULT_SETTINGS.mapVisibleLayers).toContain('player');
+  });
+
+  it('themeMode defaults to dark', () => {
+    expect(DEFAULT_SETTINGS.themeMode).toBe('dark');
   });
 });
 
@@ -89,6 +95,62 @@ describe('DEFAULT_THEME', () => {
     const uniqueColors = new Set(Object.values(DEFAULT_THEME));
     // At least some colors should differ (bg vs text vs accent vs status)
     expect(uniqueColors.size).toBeGreaterThan(3);
+  });
+});
+
+// ─── LIGHT_THEME ─────────────────────────────────────────────────
+
+describe('LIGHT_THEME', () => {
+  it('has all 12 DashboardTheme color properties', () => {
+    const requiredKeys: (keyof DashboardTheme)[] = [
+      'bgPrimary',
+      'bgSecondary',
+      'bgCard',
+      'borderColor',
+      'textPrimary',
+      'textSecondary',
+      'accent',
+      'accentHover',
+      'success',
+      'danger',
+      'info',
+      'muted',
+    ];
+    for (const key of requiredKeys) {
+      expect(LIGHT_THEME).toHaveProperty(key);
+    }
+    expect(Object.keys(LIGHT_THEME)).toHaveLength(12);
+  });
+
+  it('all color values are valid hex strings', () => {
+    const hexRegex = /^#[0-9a-fA-F]{6}$/;
+    for (const [key, value] of Object.entries(LIGHT_THEME)) {
+      expect(value).toMatch(hexRegex);
+    }
+  });
+
+  it('uses light background colors', () => {
+    // Light theme backgrounds should be bright (lightness > dark theme)
+    const parseHex = (h: string) => parseInt(h.slice(1), 16);
+    const bgAvg = (parseHex(LIGHT_THEME.bgPrimary) + parseHex(LIGHT_THEME.bgSecondary) + parseHex(LIGHT_THEME.bgCard)) / 3;
+    const darkBgAvg = (parseHex(DEFAULT_THEME.bgPrimary) + parseHex(DEFAULT_THEME.bgSecondary) + parseHex(DEFAULT_THEME.bgCard)) / 3;
+    expect(bgAvg).toBeGreaterThan(darkBgAvg);
+  });
+
+  it('uses dark text colors (dark on light background)', () => {
+    const parseHex = (h: string) => parseInt(h.slice(1), 16);
+    // Light theme text should be darker than dark theme text
+    const lightTextAvg = (parseHex(LIGHT_THEME.textPrimary) + parseHex(LIGHT_THEME.textSecondary)) / 2;
+    const darkTextAvg = (parseHex(DEFAULT_THEME.textPrimary) + parseHex(DEFAULT_THEME.textSecondary)) / 2;
+    expect(lightTextAvg).toBeLessThan(darkTextAvg);
+  });
+
+  it('is different from DEFAULT_THEME', () => {
+    for (const key of Object.keys(DEFAULT_THEME) as (keyof DashboardTheme)[]) {
+      // At least one color should differ between themes
+      if (LIGHT_THEME[key] !== DEFAULT_THEME[key]) return;
+    }
+    throw new Error('LIGHT_THEME should differ from DEFAULT_THEME in at least one color');
   });
 });
 

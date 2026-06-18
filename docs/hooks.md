@@ -102,7 +102,7 @@ resetSettings();
 
 ### Behavior
 
-- **On mount:** Reads `frm-theme` from localStorage. Applies 12 CSS custom properties via `applyThemeCssVars()`.
+- **On mount:** Reads `frm-theme` from localStorage. If no custom theme is saved, checks `frm-app-settings` for `themeMode` — if `'light'`, loads `LIGHT_THEME` instead of `DEFAULT_THEME`. Applies 12 CSS custom properties via `applyThemeCssVars()`.
 - **`updateTheme(partial)`:** Merges partial, writes to localStorage, calls `applyThemeCssVars()`.
 - **`resetTheme()`:** Clears localStorage, resets to `DEFAULT_THEME`.
 - **`mounted` state:** Provider doesn't render children until theme is loaded — prevents flash of default colors then switching to saved.
@@ -174,6 +174,14 @@ const avgProd = getWindowAverage(300_000, (circuit) => circuit.PowerProduction);
 **`averagePowerStats(snapshots: PowerSnapshot[]): PowerSnapshot`**
 
 - Averages `totalProd`, `totalConsumed`, `totalCapacity`, and `totalMaxConsumed` across snapshots.
+
+**`extractItemTimeSeries(snapshots: ProdStatSnapshot[][], className: string): ProdTimePoint[]`**
+
+- Extracts a time-series of production and consumption values for a single item across buffered snapshots.
+- Each snapshot is searched for the matching `ClassName`; if found, a `ProdTimePoint` (`{ timestamp, prod, cons }`) is emitted.
+- Timestamps are index-based (snapshot position in the array) rather than wall-clock time.
+- Skips snapshots where the item is not present (e.g., newly added or removed items).
+- Used by `ProdConsChart` in `ProductionMonitor`'s detail panel to render the production vs consumption line chart.
 
 ### Edge Cases
 

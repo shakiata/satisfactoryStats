@@ -4,53 +4,19 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FRMConfig, WorldInvItem, StorageContainer, CloudInvItem, AppSettings } from '@/lib/types';
 import { fetchEndpoint } from '@/lib/api';
 import { useTheme } from '@/lib/useTheme';
+import { formatNumber } from '@/lib/formatters';
+import { ItemIcon } from '@/components/ui/ItemIcon';
 
 interface Props {
   config: FRMConfig;
   settings: AppSettings;
 }
 
-/* ─── Format large numbers ─── */
-function fmt(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  if (n >= 1) return n.toFixed(0);
-  return n.toFixed(1);
-}
-
-/* ─── Item icon with fallback initials ─── */
-function ItemIcon({ className, name, size = 'md' }: { className: string; name: string; size?: 'sm' | 'md' | 'lg' }) {
-  const [errored, setErrored] = useState(false);
-  const short = name.replace(/^Desc_/, '').replace(/_C$/, '');
-  const initials = (short.match(/[A-Z]/g) || short.slice(0, 2).split('')).slice(0, 2).join('');
-
-  const sizes = {
-    sm: { box: 'w-6 h-6', img: 'w-5 h-5', text: 'text-[8px]' },
-    md: { box: 'w-8 h-8', img: 'w-7 h-7', text: 'text-xs' },
-    lg: { box: 'w-10 h-10', img: 'w-9 h-9', text: 'text-sm' },
-  };
-  const s = sizes[size];
-
-  return (
-    <div className={`${s.box} rounded flex items-center justify-center shrink-0`} style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      {!errored && (
-        <img
-          src={`./Icons/${className}.png`}
-          alt={name}
-          className={`${s.img} object-contain`}
-          onError={() => setErrored(true)}
-        />
-      )}
-      {errored && (
-        <span className={`${s.text} font-bold`} style={{ color: 'var(--text-secondary)' }}>
-          {initials}
-        </span>
-      )}
-    </div>
-  );
-}
-
 /* ─── Progress bar for fill percentage ─── */
+/**
+ * Vertical-stack bar showing how full an item/container is.
+ * Green (accent) below 70%, amber at 70–94%, red (danger) at 95%+.
+ */
 function FillBar({ amount, max }: { amount: number; max: number }) {
   const pct = max > 0 ? Math.min(100, (amount / max) * 100) : 0;
   const full = pct >= 95;
@@ -61,7 +27,7 @@ function FillBar({ amount, max }: { amount: number; max: number }) {
           className="h-full rounded-full transition-all"
           style={{
             width: `${pct}%`,
-            backgroundColor: full ? 'var(--danger)' : pct > 70 ? '#c9952e' : 'var(--accent)',
+            backgroundColor: full ? 'var(--danger)' : pct > 70 ? 'var(--accent)' : 'var(--accent)',
           }}
         />
       </div>
@@ -73,6 +39,10 @@ function FillBar({ amount, max }: { amount: number; max: number }) {
 }
 
 /* ─── Main Component ─── */
+/**
+ * Inventory viewer with two tabs: aggregated world totals and per-container
+ * storage. Shows summary cards and a searchable, sortable table with fill bars.
+ */
 export function InventoryPanel({ config, settings }: Props) {
   const { theme } = useTheme();
 
@@ -209,14 +179,14 @@ export function InventoryPanel({ config, settings }: Props) {
             placeholder="Search items or containers…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border outline-none transition-colors"
+            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border outline-none transition-colors search-input"
             style={{
               backgroundColor: theme.bgCard,
               borderColor: theme.borderColor,
               color: theme.textPrimary,
+              borderWidth: '1px',
+              borderStyle: 'solid',
             }}
-            onFocus={e => { e.target.style.borderColor = theme.accent; }}
-            onBlur={e => { e.target.style.borderColor = theme.borderColor; }}
           />
         </div>
         <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: theme.borderColor }}>
@@ -266,7 +236,7 @@ export function InventoryPanel({ config, settings }: Props) {
                         </div>
                       </td>
                       <td className="px-4 py-2 text-right font-mono font-medium" style={{ color: theme.textPrimary }}>
-                        {fmt(item.Amount)}
+                        {formatNumber(item.Amount)}
                       </td>
                       <td className="px-4 py-2 text-right font-mono hidden sm:table-cell" style={{ color: theme.textSecondary }}>
                         {item.MaxAmount > 0 ? item.MaxAmount : '—'}
@@ -332,7 +302,7 @@ export function InventoryPanel({ config, settings }: Props) {
                     </div>
                   </div>
                   <span className="text-xs font-mono font-medium shrink-0" style={{ color: theme.accent }}>
-                    {fmt(totalItems)} total
+                    {formatNumber(totalItems)} total
                   </span>
                 </button>
 
@@ -358,7 +328,7 @@ export function InventoryPanel({ config, settings }: Props) {
                                 </div>
                               </td>
                               <td className="px-4 py-1.5 text-right font-mono" style={{ color: theme.textPrimary }}>
-                                {fmt(item.Amount)}
+                                {formatNumber(item.Amount)}
                               </td>
                               <td className="px-4 py-1.5 hidden sm:table-cell">
                                 <FillBar amount={item.Amount} max={item.MaxAmount} />
@@ -385,6 +355,10 @@ export function InventoryPanel({ config, settings }: Props) {
 }
 
 /* ─── Summary card helper ─── */
+/**
+ * Small stat card displaying a label, formatted numeric value,
+ * and a subordinate description line. Colored by the caller.
+ */
 function SummaryCard({ label, value, sub, color }: { label: string; value: string | number; sub: string; color: string }) {
   return (
     <div
@@ -395,7 +369,7 @@ function SummaryCard({ label, value, sub, color }: { label: string; value: strin
         {label}
       </p>
       <p className="text-xl font-bold mt-1 font-mono" style={{ color }}>
-        {typeof value === 'number' ? fmt(value) : value}
+        {typeof value === 'number' ? formatNumber(value) : value}
       </p>
       <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{sub}</p>
     </div>

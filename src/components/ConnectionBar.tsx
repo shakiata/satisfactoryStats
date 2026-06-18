@@ -14,6 +14,12 @@ interface ConnectionBarProps {
   error: string | null;
 }
 
+/**
+ * Top-of-page connection bar for entering FRM server details and
+ * managing the connection state. Shows host, port, and auth token
+ * inputs. When running inside Electron, also provides ngrok tunnel
+ * start/stop controls with copy-to-clipboard for sharing the URL.
+ */
 export function ConnectionBar({ config, onConfigChange, onConnect, connected, connecting, error }: ConnectionBarProps) {
   const { theme } = useTheme();
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
@@ -80,10 +86,8 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
             value={config.host}
             onChange={(e) => onConfigChange({ ...config, host: e.target.value })}
             placeholder="localhost"
-            className="rounded-lg px-3 py-2 text-sm w-40 focus:outline-none transition-colors"
-            style={{ backgroundColor: theme.bgPrimary, border: `1px solid ${theme.borderColor}`, color: theme.textPrimary }}
-            onFocus={(e) => (e.target.style.borderColor = theme.accent)}
-            onBlur={(e) => (e.target.style.borderColor = theme.borderColor)}
+            className="rounded-lg px-3 py-2 text-sm w-40 focus:outline-none transition-colors conn-input"
+            style={{ backgroundColor: theme.bgPrimary, borderColor: theme.borderColor, color: theme.textPrimary, borderWidth: '1px', borderStyle: 'solid' }}
           />
         </div>
 
@@ -94,10 +98,8 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
             value={config.port}
             onChange={(e) => onConfigChange({ ...config, port: e.target.value })}
             placeholder="8080"
-            className="rounded-lg px-3 py-2 text-sm w-24 focus:outline-none transition-colors"
-            style={{ backgroundColor: theme.bgPrimary, border: `1px solid ${theme.borderColor}`, color: theme.textPrimary }}
-            onFocus={(e) => (e.target.style.borderColor = theme.accent)}
-            onBlur={(e) => (e.target.style.borderColor = theme.borderColor)}
+            className="rounded-lg px-3 py-2 text-sm w-24 focus:outline-none transition-colors conn-input"
+            style={{ backgroundColor: theme.bgPrimary, borderColor: theme.borderColor, color: theme.textPrimary, borderWidth: '1px', borderStyle: 'solid' }}
           />
         </div>
 
@@ -108,10 +110,8 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
             value={config.password || ''}
             onChange={(e) => onConfigChange({ ...config, password: e.target.value })}
             placeholder="From WebServer.cfg"
-            className="rounded-lg px-3 py-2 text-sm w-36 focus:outline-none transition-colors"
-            style={{ backgroundColor: theme.bgPrimary, border: `1px solid ${theme.borderColor}`, color: theme.textPrimary }}
-            onFocus={(e) => (e.target.style.borderColor = theme.accent)}
-            onBlur={(e) => (e.target.style.borderColor = theme.borderColor)}
+            className="rounded-lg px-3 py-2 text-sm w-36 focus:outline-none transition-colors conn-input"
+            style={{ backgroundColor: theme.bgPrimary, borderColor: theme.borderColor, color: theme.textPrimary, borderWidth: '1px', borderStyle: 'solid' }}
           />
         </div>
 
@@ -123,12 +123,6 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
             backgroundColor: connected ? theme.success + '20' : theme.accent,
             color: connected ? theme.success : 'black',
             border: connected ? `1px solid ${theme.success}40` : 'none',
-          }}
-          onMouseEnter={(e) => {
-            if (!connected && !connecting) e.currentTarget.style.backgroundColor = theme.accentHover;
-          }}
-          onMouseLeave={(e) => {
-            if (!connected && !connecting) e.currentTarget.style.backgroundColor = theme.accent;
           }}
         >
           {connecting ? (

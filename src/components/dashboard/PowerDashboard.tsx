@@ -6,17 +6,17 @@ import { fetchEndpoint } from '@/lib/api';
 import { useTheme } from '@/lib/useTheme';
 import { useTimeBuffer } from '@/lib/useTimeBuffer';
 import { TIME_WINDOWS, type TimeWindowMs } from '@/components/TimeWindowSelector';
+import { formatPower } from '@/lib/formatters';
 
 interface Props {
   config: FRMConfig;
   timeWindow: TimeWindowMs;
 }
 
-function formatPower(mw: number): string {
-  if (mw >= 1000) return `${(mw / 1000).toFixed(1)} GW`;
-  return `${mw.toFixed(0)} MW`;
-}
-
+/**
+ * Horizontal gauge bar showing a value relative to a maximum.
+ * Used for power production, consumption, and battery levels.
+ */
 function GaugeBar({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
@@ -35,6 +35,11 @@ function GaugeBar({ value, max, color, label }: { value: number; max: number; co
   );
 }
 
+/**
+ * Power grid dashboard showing all circuits with production,
+ * consumption, capacity, and battery status. Supports
+ * time-buffered averaging when a time window is selected.
+ */
 export function PowerDashboard({ config, timeWindow }: Props) {
   const { theme } = useTheme();
   const [circuits, setCircuits] = useState<PowerCircuit[] | null>(null);

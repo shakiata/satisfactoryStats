@@ -42,3 +42,25 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* ConnectionBar & search inputs: focus border overrides dynamic inline style */
+.conn-input:focus,
+.search-input:focus {
+  border-color: var(--accent) !important;
+}
+
+/* Send button hover: overrides dynamic inline accent background */
+.btn-accent:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Dashboard tab hover — overrides inline style for inactive tabs */
+.tab-btn:not(.tab-active):hover {
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Train row hover in TrainControlTower */
+.train-row:not(.train-selected):hover {
+  background-color: color-mix(in srgb, #00ff88 3%, transparent) !important;
+}

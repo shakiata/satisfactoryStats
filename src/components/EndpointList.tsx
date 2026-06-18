@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { EndpointInfo, FRMConfig } from '@/lib/types';
+import { EndpointInfo, FRMConfig, DashboardTheme } from '@/lib/types';
 import { buildUrl } from '@/lib/api';
+import { useTheme } from '@/lib/useTheme';
 
 interface EndpointCardProps {
   endpoint: EndpointInfo;
   config: FRMConfig;
+  theme: DashboardTheme;
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -41,7 +43,11 @@ const CATEGORY_COLORS: Record<string, string> = {
   creatures: 'border-lime-500/30 bg-lime-500/5 hover:bg-lime-500/10',
 };
 
-function EndpointCard({ endpoint, config }: EndpointCardProps) {
+/**
+ * Displays a single API endpoint as a collapsible card.
+ * Clicking fetches live data from the FRM server and shows the JSON response.
+ */
+function EndpointCard({ endpoint, config, theme }: EndpointCardProps) {
   const [data, setData] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,28 +86,31 @@ function EndpointCard({ endpoint, config }: EndpointCardProps) {
         onClick={fetchData}
         className="w-full text-left p-4 flex items-center gap-3"
       >
-        <div className={`text-lg flex-shrink-0 w-8 h-8 rounded-lg bg-[#0a0a0a] flex items-center justify-center border border-[#2a2a2e]`}>
+        <div
+          className="text-lg flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border"
+          style={{ backgroundColor: theme.bgPrimary, borderColor: theme.borderColor }}
+        >
           {CATEGORY_ICONS[endpoint.category] || '📊'}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <code className="text-sm font-mono text-[#e6a720] font-semibold">/{endpoint.path}</code>
+            <code className="text-sm font-mono font-semibold" style={{ color: theme.accent }}>/{endpoint.path}</code>
             {endpoint.requiresGameThread && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-medium uppercase tracking-wider">
                 Thread
               </span>
             )}
           </div>
-          <p className="text-xs text-[#a0a0a0] mt-0.5">{endpoint.description}</p>
+          <p className="text-xs mt-0.5" style={{ color: theme.textSecondary }}>{endpoint.description}</p>
         </div>
         <div className="flex-shrink-0">
           {loading ? (
-            <svg className="animate-spin w-5 h-5 text-[#a0a0a0]" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin w-5 h-5" style={{ color: theme.textSecondary }} fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           ) : (
-            <svg className={`w-5 h-5 text-[#a0a0a0] transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className={`w-5 h-5 transition-transform ${expanded ? 'rotate-180' : ''}`} style={{ color: theme.textSecondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           )}
@@ -109,26 +118,26 @@ function EndpointCard({ endpoint, config }: EndpointCardProps) {
       </button>
 
       {expanded && (
-        <div className="border-t border-[#2a2a2e] p-4">
+        <div className="border-t p-4" style={{ borderColor: theme.borderColor }}>
           {error ? (
-            <div className="text-[#e74c3c] text-sm bg-[#e74c3c]/10 p-3 rounded-lg">
+            <div className="text-sm p-3 rounded-lg" style={{ color: theme.danger, backgroundColor: theme.danger + '10' }}>
               {error}
             </div>
           ) : data !== null ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#a0a0a0] font-medium uppercase tracking-wider">
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: theme.textSecondary }}>
                   {Array.isArray(data) ? `${data.length} results` : 'Response'}
                 </span>
-                <span className="text-xs text-[#a0a0a0] font-mono">
+                <span className="text-xs font-mono" style={{ color: theme.textSecondary }}>
                   GET {buildUrl(config, endpoint.path)}
                 </span>
               </div>
-              <pre className="text-xs bg-[#0a0a0a] rounded-lg p-4 overflow-auto max-h-96 border border-[#2a2a2e] text-[#e0e0e0] font-mono leading-relaxed">
+              <pre className="text-xs rounded-lg p-4 overflow-auto max-h-96 border font-mono leading-relaxed" style={{ backgroundColor: theme.bgPrimary, borderColor: theme.borderColor, color: theme.textPrimary }}>
                 {JSON.stringify(data, null, 2)}
               </pre>
               {Array.isArray(data) && data.length > 0 && (
-                <div className="text-xs text-[#2ecc71] bg-[#2ecc71]/10 px-3 py-2 rounded-lg border border-[#2ecc71]/20">
+                <div className="text-xs px-3 py-2 rounded-lg border" style={{ color: theme.success, backgroundColor: theme.success + '10', borderColor: theme.success + '20' }}>
                   ✓ Successfully loaded {data.length} {data.length === 1 ? 'entry' : 'entries'}
                 </div>
               )}
@@ -146,7 +155,13 @@ interface EndpointListProps {
   categories: Map<string, EndpointInfo[]>;
 }
 
+/**
+ * Lists all available FRM API endpoints grouped by category. Supports
+ * text search and category filter buttons. Each endpoint card can be
+ * expanded to fetch and display live JSON data from the game server.
+ */
 export function EndpointList({ config, endpoints, categories }: EndpointListProps) {
+  const { theme } = useTheme();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -169,10 +184,10 @@ export function EndpointList({ config, endpoints, categories }: EndpointListProp
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#f0f0f0] mb-2">
+        <h1 className="text-3xl font-bold mb-2" style={{ color: theme.textPrimary }}>
           Available Statistics
         </h1>
-        <p className="text-[#a0a0a0]">
+        <p style={{ color: theme.textSecondary }}>
           {endpoints.length} endpoints across {categoryNames.length} categories.
           Click any endpoint to fetch and view live data from your Satisfactory game.
         </p>
@@ -181,7 +196,7 @@ export function EndpointList({ config, endpoints, categories }: EndpointListProp
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         <div className="relative flex-1 min-w-[200px] max-w-md">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a0a0a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: theme.textSecondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -189,18 +204,20 @@ export function EndpointList({ config, endpoints, categories }: EndpointListProp
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search endpoints..."
-            className="w-full bg-[#141414] border border-[#2a2a2e] rounded-lg pl-10 pr-4 py-2.5 text-sm text-[#f0f0f0] focus:outline-none focus:border-[#e6a720] transition-colors"
+            className="w-full rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none transition-colors search-input"
+            style={{ backgroundColor: theme.bgSecondary, borderColor: theme.borderColor, color: theme.textPrimary, borderWidth: '1px', borderStyle: 'solid' }}
           />
         </div>
         {categoryNames.map((cat) => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-            className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all border ${
-              selectedCategory === cat
-                ? 'bg-[#e6a720] text-black border-[#e6a720]'
-                : 'bg-[#141414] text-[#a0a0a0] border-[#2a2a2e] hover:border-[#e6a720]/50 hover:text-[#f0f0f0]'
-            }`}
+            className="px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all border"
+            style={{
+              backgroundColor: selectedCategory === cat ? theme.accent : theme.bgSecondary,
+              color: selectedCategory === cat ? '#000' : theme.textSecondary,
+              borderColor: selectedCategory === cat ? theme.accent : theme.borderColor,
+            }}
           >
             {CATEGORY_ICONS[cat] || ''} {cat}
           </button>
@@ -208,7 +225,8 @@ export function EndpointList({ config, endpoints, categories }: EndpointListProp
         {selectedCategory && (
           <button
             onClick={() => setSelectedCategory(null)}
-            className="px-3 py-2 rounded-lg text-xs font-medium text-[#e74c3c] hover:bg-[#e74c3c]/10 border border-transparent transition-all"
+            className="px-3 py-2 rounded-lg text-xs font-medium border border-transparent transition-all"
+            style={{ color: theme.danger }}
           >
             ✕ Clear filter
           </button>
@@ -217,7 +235,7 @@ export function EndpointList({ config, endpoints, categories }: EndpointListProp
 
       {/* Results */}
       {filteredEndpoints.length === 0 ? (
-        <div className="text-center py-16 text-[#a0a0a0]">
+        <div className="text-center py-16" style={{ color: theme.textSecondary }}>
           <svg className="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -227,7 +245,7 @@ export function EndpointList({ config, endpoints, categories }: EndpointListProp
       ) : (
         <div className="grid gap-3">
           {filteredEndpoints.map((ep) => (
-            <EndpointCard key={ep.path} endpoint={ep} config={config} />
+            <EndpointCard key={ep.path} endpoint={ep} config={config} theme={theme} />
           ))}
         </div>
       )}

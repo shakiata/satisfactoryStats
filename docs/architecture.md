@@ -18,12 +18,14 @@ graph TD
         PAGE["page.tsx<br/>Tab router + state"]
         HOOKS["Hooks<br/>useConfig / useTheme / useTimeBuffer"]
         API["api.ts<br/>buildUrl / fetchEndpoint"]
-        COMPONENTS["14 Components<br/>12 tabs + 2 shared"]
+        COMPONENTS["14 Components<br/>12 tabs + 3 shared"]
+        LIBS["Shared libs<br/>formatters colors names"]
         GLOBALS["globals.css<br/>CSS custom properties"]
     end
     FRM -->|HTTP| API
     API --> HOOKS
     HOOKS --> COMPONENTS
+    LIBS --> COMPONENTS
     COMPONENTS --> PAGE
     MAIN --> PRELOAD
     PRELOAD --> NGROK

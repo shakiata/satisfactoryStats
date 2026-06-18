@@ -5,6 +5,10 @@ import { AppSettings, DEFAULT_SETTINGS } from './types';
 
 const STORAGE_KEY = 'frm-app-settings';
 
+/**
+ * Hook that persists user app settings (icon size, map scale,
+ * active tab, time window) to localStorage.
+ */
 export function useAppSettings() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded] = useState(false);

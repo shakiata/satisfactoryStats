@@ -22,6 +22,11 @@ interface BuildingSummary {
   avgPower: number;
 }
 
+/**
+ * Aggregates raw factory building data into per-type summaries.
+ * Returns total count, producing/paused/idle counts, average
+ * productivity, and average power draw for each building type.
+ */
 function summarizeBuildings(buildings: FactoryBuilding[]): BuildingSummary[] {
   const map = new Map<string, { producing: number; paused: number; idle: number; prodSum: number; powerSum: number }>();
 
@@ -50,6 +55,11 @@ function summarizeBuildings(buildings: FactoryBuilding[]): BuildingSummary[] {
   }));
 }
 
+/**
+ * Factory efficiency dashboard showing all buildings grouped by type.
+ * Displays producing/paused/idle counts, average productivity,
+ * total power draw, and supports time-buffered averaging.
+ */
 export function FactoryEfficiency({ config, timeWindow }: Props) {
   const { theme } = useTheme();
   const [buildings, setBuildings] = useState<FactoryBuilding[] | null>(null);
@@ -163,14 +173,14 @@ export function FactoryEfficiency({ config, timeWindow }: Props) {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Filter building types..."
-        className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none transition-colors"
+        className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none transition-colors search-input"
         style={{
           backgroundColor: theme.bgCard,
-          border: `1px solid ${theme.borderColor}`,
+          borderColor: theme.borderColor,
           color: theme.textPrimary,
+          borderWidth: '1px',
+          borderStyle: 'solid',
         }}
-        onFocus={(e) => (e.target.style.borderColor = theme.accent)}
-        onBlur={(e) => (e.target.style.borderColor = theme.borderColor)}
       />
 
       {/* Building Type List */}

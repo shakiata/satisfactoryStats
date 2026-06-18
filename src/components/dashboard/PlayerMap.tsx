@@ -9,6 +9,10 @@ interface Props {
   config: FRMConfig;
 }
 
+/**
+ * Displays connected players on a stylized grid map showing
+ * health, location, and equipped items.
+ */
 export function PlayerMap({ config }: Props) {
   const { theme } = useTheme();
   const [players, setPlayers] = useState<Player[] | null>(null);

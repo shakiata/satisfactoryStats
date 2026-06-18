@@ -9,6 +9,7 @@ let mainWindow;
 let ngrokProcess = null;
 let ngrokUrl = null;
 
+/** Resolves the app icon path for Electron, handling dev vs packaged paths. */
 function getIconPath() {
   // In dev: electron/ → ../public/icon.png
   // In packaged asar: electron/ → ../out/icon.png (Next.js copies public/ into out/)
@@ -17,6 +18,7 @@ function getIconPath() {
   return fs.existsSync(devIcon) ? devIcon : prodIcon;
 }
 
+/** Creates the main BrowserWindow with secure defaults (contextIsolation on). */
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -69,6 +71,7 @@ app.whenReady().then(createWindow);
 
 // ─── ngrok Tunnel IPC ───────────────────────────────────────────
 
+/** Starts an ngrok tunnel to expose the FRM server. Tries npm package first, falls back to CLI. */
 ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
   try {
     // If there's already a tunnel, kill it first
@@ -166,6 +169,7 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
   }
 });
 
+/** Stops any active ngrok tunnel and cleans up the process. */
 ipcMain.handle("tunnel:stop", async () => {
   try {
     // Try npm package disconnect first
@@ -188,6 +192,7 @@ ipcMain.handle("tunnel:stop", async () => {
   }
 });
 
+/** Returns the current tunnel status: whether active and the public URL if so. */
 ipcMain.handle("tunnel:status", async () => {
   return { active: !!ngrokUrl, url: ngrokUrl };
 });

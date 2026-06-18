@@ -1,9 +1,10 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { DashboardTheme, DEFAULT_THEME } from './types';
+import { DashboardTheme, DEFAULT_THEME, LIGHT_THEME } from './types';
 
 const STORAGE_KEY = 'frm-theme';
+const SETTINGS_KEY = 'frm-app-settings';
 
 interface ThemeContextType {
   theme: DashboardTheme;
@@ -17,6 +18,7 @@ const ThemeContext = createContext<ThemeContextType>({
   resetTheme: () => {},
 });
 
+/** Applies DashboardTheme values as CSS custom properties on :root. */
 function applyThemeCssVars(t: DashboardTheme) {
   const root = document.documentElement;
   root.style.setProperty('--bg-primary', t.bgPrimary);
@@ -33,6 +35,11 @@ function applyThemeCssVars(t: DashboardTheme) {
   root.style.setProperty('--muted', t.muted);
 }
 
+/**
+ * Loads theme from localStorage, falling back to DEFAULT_THEME.
+ * Also checks app settings for themeMode — if no custom theme is
+ * saved but themeMode is 'light', returns LIGHT_THEME instead.
+ */
 function loadTheme(): DashboardTheme {
   if (typeof window === 'undefined') return DEFAULT_THEME;
   try {
@@ -42,9 +49,23 @@ function loadTheme(): DashboardTheme {
       return { ...DEFAULT_THEME, ...saved };
     }
   } catch { /* ignore parse errors */ }
+
+  // No custom theme saved — check app settings for themeMode
+  try {
+    const settingsRaw = localStorage.getItem(SETTINGS_KEY);
+    if (settingsRaw) {
+      const settings = JSON.parse(settingsRaw);
+      if (settings.themeMode === 'light') return LIGHT_THEME;
+    }
+  } catch { /* ignore */ }
+
   return DEFAULT_THEME;
 }
 
+/**
+ * Context provider that holds the current theme, applies CSS
+ * variables to :root on change, and persists to localStorage.
+ */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<DashboardTheme>(DEFAULT_THEME);
   const [mounted, setMounted] = useState(false);
@@ -83,6 +104,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** Returns the current theme object and the updateTheme + resetTheme callbacks. */
 export function useTheme() {
   return useContext(ThemeContext);
 }

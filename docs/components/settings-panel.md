@@ -25,6 +25,7 @@ interface Props {
 **2. Appearance**
 
 - **Icon Size** toggle: Small / Medium / Large
+- **Color Mode** toggle: Dark / Light — applies `DEFAULT_THEME` or `LIGHT_THEME` globally and persists preference to `AppSettings.themeMode`
 - **Map Icon Scale** slider: 0.5× to 2.0×
 - **Reset Appearance** button (resets to DEFAULT_SETTINGS)
 

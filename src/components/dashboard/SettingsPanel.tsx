@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from '@/lib/useTheme';
-import { DashboardTheme, DEFAULT_THEME, DEFAULT_SETTINGS, FRMConfig, AppSettings } from '@/lib/types';
+import { DashboardTheme, DEFAULT_THEME, LIGHT_THEME, DEFAULT_SETTINGS, FRMConfig, AppSettings } from '@/lib/types';
 import { defaultConfig } from '@/lib/useConfig';
 
 interface ColorRowProps {
@@ -9,19 +9,25 @@ interface ColorRowProps {
   cssVar: string;
   value: string;
   onChange: (val: string) => void;
+  theme: DashboardTheme;
 }
 
-function ColorRow({ label, cssVar, value, onChange }: ColorRowProps) {
+/**
+ * A single theme color row: label, CSS variable name, color swatch,
+ * color picker, and hex text input. Uses theme tokens for consistent
+ * appearance in both dark and light modes.
+ */
+function ColorRow({ label, cssVar, value, onChange, theme }: ColorRowProps) {
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex items-center gap-3">
         <div
-          className="w-6 h-6 rounded-md border border-[#2a2a2e] shrink-0"
-          style={{ backgroundColor: value }}
+          className="w-6 h-6 rounded-md border shrink-0"
+          style={{ backgroundColor: value, borderColor: theme.borderColor }}
         />
         <div>
-          <p className="text-sm text-[#f0f0f0]">{label}</p>
-          <p className="text-xs text-[#a0a0a0] font-mono">{cssVar}</p>
+          <p className="text-sm" style={{ color: theme.textPrimary }}>{label}</p>
+          <p className="text-xs font-mono" style={{ color: theme.textSecondary }}>{cssVar}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -29,16 +35,21 @@ function ColorRow({ label, cssVar, value, onChange }: ColorRowProps) {
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-8 h-8 rounded-md border border-[#2a2a2e] cursor-pointer bg-transparent p-0
+          className="w-8 h-8 rounded-md border cursor-pointer bg-transparent p-0
             [&::-webkit-color-swatch-wrapper]:p-0
             [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-0"
+          style={{ borderColor: theme.borderColor }}
         />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-20 bg-[#0a0a0a] border border-[#2a2a2e] rounded-md px-2 py-1 text-xs font-mono text-[#f0f0f0]
-            focus:outline-none focus:border-[#e6a720] text-center"
+          className="w-20 rounded-md px-2 py-1 text-xs font-mono text-center border"
+          style={{
+            backgroundColor: theme.bgPrimary,
+            borderColor: theme.borderColor,
+            color: theme.textPrimary,
+          }}
         />
       </div>
     </div>
@@ -105,11 +116,20 @@ interface SettingsPanelProps {
   saveSettings: (partial: Partial<AppSettings>) => void;
 }
 
+/**
+ * Application settings panel: theme color customization,
+ * icon size preferences, map scale, and other user preferences
+ * persisted via useAppSettings.
+ */
 export function SettingsPanel({ config, saveConfig, settings, saveSettings }: SettingsPanelProps) {
   const { theme, updateTheme, resetTheme } = useTheme();
 
   const isDefault = Object.keys(DEFAULT_THEME).every(
     (k) => theme[k as keyof DashboardTheme] === DEFAULT_THEME[k as keyof DashboardTheme]
+  );
+
+  const isLightDefault = Object.keys(LIGHT_THEME).every(
+    (k) => theme[k as keyof DashboardTheme] === LIGHT_THEME[k as keyof DashboardTheme]
   );
 
   const isSettingsDefault =
@@ -138,25 +158,32 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#f0f0f0]">Settings</h2>
-          <p className="text-sm text-[#a0a0a0] mt-1">
+          <h2 className="text-xl font-bold" style={{ color: theme.textPrimary }}>Settings</h2>
+          <p className="text-sm mt-1" style={{ color: theme.textSecondary }}>
             Dashboard preferences and theme customization.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => saveConfig(defaultConfig)}
-            className="px-4 py-2 text-xs font-medium rounded-lg border transition-all
-              bg-[#141414] border-[#2a2a2e] text-[#f0f0f0] hover:border-[#e6a720] hover:text-[#e6a720]"
+            className="px-4 py-2 text-xs font-medium rounded-lg border transition-all"
+            style={{
+              backgroundColor: theme.bgSecondary,
+              borderColor: theme.borderColor,
+              color: theme.textPrimary,
+            }}
           >
             Reset Settings
           </button>
           <button
             onClick={resetTheme}
-            disabled={isDefault}
-            className="px-4 py-2 text-xs font-medium rounded-lg border transition-all
-              bg-[#141414] border-[#2a2a2e] text-[#f0f0f0] hover:border-[#e74c3c] hover:text-[#e74c3c]
-              disabled:opacity-30 disabled:cursor-not-allowed"
+            disabled={isDefault || isLightDefault}
+            className="px-4 py-2 text-xs font-medium rounded-lg border transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: theme.bgSecondary,
+              borderColor: theme.borderColor,
+              color: theme.textPrimary,
+            }}
           >
             Reset Theme
           </button>
@@ -164,20 +191,24 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
       </div>
 
       {/* General Settings */}
-      <div className="bg-[#141414] border border-[#2a2a2e] rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-[#f0f0f0] mb-4">General</h3>
+      <div className="rounded-xl p-5" style={{ backgroundColor: theme.bgSecondary, border: `1px solid ${theme.borderColor}` }}>
+        <h3 className="text-sm font-semibold mb-4" style={{ color: theme.textPrimary }}>General</h3>
 
         {/* Refresh Rate */}
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-[#f0f0f0]">Refresh Rate</p>
-            <p className="text-xs text-[#a0a0a0]">How often data is polled from the server</p>
+            <p className="text-sm" style={{ color: theme.textPrimary }}>Refresh Rate</p>
+            <p className="text-xs" style={{ color: theme.textSecondary }}>How often data is polled from the server</p>
           </div>
           <select
             value={config.refreshRate}
             onChange={(e) => saveConfig({ ...config, refreshRate: Number(e.target.value) })}
-            className="bg-[#0a0a0a] border border-[#2a2a2e] rounded-md px-3 py-1.5 text-xs text-[#f0f0f0]
-              focus:outline-none focus:border-[#e6a720] cursor-pointer"
+            className="rounded-md px-3 py-1.5 text-xs cursor-pointer border"
+            style={{
+              backgroundColor: theme.bgPrimary,
+              borderColor: theme.borderColor,
+              color: theme.textPrimary,
+            }}
           >
             {RATE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -187,24 +218,24 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
       </div>
 
       {/* Appearance Settings */}
-      <div className="bg-[#141414] border border-[#2a2a2e] rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-[#f0f0f0] mb-4">Appearance</h3>
+      <div className="rounded-xl p-5" style={{ backgroundColor: theme.bgSecondary, border: `1px solid ${theme.borderColor}` }}>
+        <h3 className="text-sm font-semibold mb-4" style={{ color: theme.textPrimary }}>Appearance</h3>
 
         {/* Icon Size */}
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-[#f0f0f0]">Icon Size</p>
-            <p className="text-xs text-[#a0a0a0]">Card icon size for Production &amp; Inventory views</p>
+            <p className="text-sm" style={{ color: theme.textPrimary }}>Icon Size</p>
+            <p className="text-xs" style={{ color: theme.textSecondary }}>Card icon size for Production &amp; Inventory views</p>
           </div>
-          <div className="flex rounded-lg overflow-hidden border border-[#2a2a2e]">
+          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: theme.borderColor }}>
             {ICON_SIZE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => saveSettings({ iconSize: opt.value })}
                 className="px-3 py-1.5 text-xs font-medium transition-all"
                 style={{
-                  backgroundColor: settings.iconSize === opt.value ? theme.accent : '#0a0a0a',
-                  color: settings.iconSize === opt.value ? '#000' : theme.textSecondary,
+                  backgroundColor: settings.iconSize === opt.value ? theme.accent : theme.bgPrimary,
+                  color: settings.iconSize === opt.value ? (settings.themeMode === 'dark' ? '#000' : '#fff') : theme.textSecondary,
                 }}
               >
                 {opt.label}
@@ -213,11 +244,42 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
           </div>
         </div>
 
+        {/* Theme Mode — Dark / Light toggle */}
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm" style={{ color: theme.textPrimary }}>Color Mode</p>
+            <p className="text-xs" style={{ color: theme.textSecondary }}>Switch between dark and light visual themes</p>
+          </div>
+          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: theme.borderColor }}>
+            {(['dark', 'light'] as const).map((mode) => {
+              const active = settings.themeMode === mode;
+              const isDark = mode === 'dark';
+              return (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    saveSettings({ themeMode: mode });
+                    updateTheme(isDark ? DEFAULT_THEME : LIGHT_THEME);
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium transition-all capitalize"
+                  style={{
+                    backgroundColor: active ? theme.accent : theme.bgPrimary,
+                    color: active ? (isDark ? '#000' : '#fff') : theme.textSecondary,
+                    borderRight: !isDark ? 'none' : `1px solid ${theme.borderColor}`,
+                  }}
+                >
+                  {isDark ? '🌙 Dark' : '☀️ Light'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Map Icon Scale */}
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-[#f0f0f0]">Map Icon Scale</p>
-            <p className="text-xs text-[#a0a0a0]">Size of building icons on the Factory Map</p>
+            <p className="text-sm" style={{ color: theme.textPrimary }}>Map Icon Scale</p>
+            <p className="text-xs" style={{ color: theme.textSecondary }}>Size of building icons on the Factory Map</p>
           </div>
           <div className="flex items-center gap-3">
             <input
@@ -233,18 +295,21 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
                 accentColor: theme.accent,
               }}
             />
-            <span className="text-xs font-mono text-[#f0f0f0] w-8 text-right">{settings.mapIconScale.toFixed(1)}x</span>
+            <span className="text-xs font-mono w-8 text-right" style={{ color: theme.textPrimary }}>{settings.mapIconScale.toFixed(1)}x</span>
           </div>
         </div>
 
         {/* Reset Appearance */}
-        <div className="mt-3 pt-3 border-t border-[#2a2a2e]">
+        <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${theme.borderColor}` }}>
           <button
             onClick={() => saveSettings(DEFAULT_SETTINGS)}
             disabled={isSettingsDefault}
-            className="px-4 py-2 text-xs font-medium rounded-lg border transition-all
-              bg-[#0a0a0a] border-[#2a2a2e] text-[#f0f0f0] hover:border-[#e74c3c] hover:text-[#e74c3c]
-              disabled:opacity-30 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-xs font-medium rounded-lg border transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: theme.bgPrimary,
+              borderColor: theme.borderColor,
+              color: theme.textPrimary,
+            }}
           >
             Reset Appearance
           </button>
@@ -295,12 +360,13 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
 
       {/* Color Sections */}
       {Object.entries(SECTION_LABELS).map(([key, section]) => (
-        <div key={key} className="bg-[#141414] border border-[#2a2a2e] rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-[#f0f0f0] mb-1">{section.label}</h3>
-          <div className="divide-y divide-[#2a2a2e]">
+        <div key={key} className="rounded-xl p-5" style={{ backgroundColor: theme.bgSecondary, border: `1px solid ${theme.borderColor}` }}>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: theme.textPrimary }}>{section.label}</h3>
+          <div className="divide-y" style={{ borderColor: theme.borderColor }}>
             {section.keys.map((themeKey) => (
               <ColorRow
                 key={themeKey}
+                theme={theme}
                 label={LABELS[themeKey]}
                 cssVar={CSS_VARS[themeKey]}
                 value={theme[themeKey]}
@@ -312,15 +378,19 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
       ))}
 
       {/* Export / Import */}
-      <div className="bg-[#141414] border border-[#2a2a2e] rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-[#f0f0f0] mb-1">Export / Import Theme</h3>
-        <p className="text-xs text-[#a0a0a0] mb-3">Copy this JSON to share your theme, or paste one to import.</p>
+      <div className="rounded-xl p-5" style={{ backgroundColor: theme.bgSecondary, border: `1px solid ${theme.borderColor}` }}>
+        <h3 className="text-sm font-semibold mb-1" style={{ color: theme.textPrimary }}>Export / Import Theme</h3>
+        <p className="text-xs mb-3" style={{ color: theme.textSecondary }}>Copy this JSON to share your theme, or paste one to import.</p>
         <textarea
           readOnly
           value={JSON.stringify(theme, null, 2)}
           onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-          className="w-full h-32 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg p-3 text-xs font-mono text-[#f0f0f0]
-            focus:outline-none resize-none select-all"
+          className="w-full h-32 font-mono text-xs rounded-lg p-3 resize-none select-all border"
+          style={{
+            backgroundColor: theme.bgPrimary,
+            borderColor: theme.borderColor,
+            color: theme.textPrimary,
+          }}
         />
         <button
           onClick={() => {
@@ -331,7 +401,11 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
               }
             } catch { alert('Invalid theme JSON'); }
           }}
-          className="mt-2 px-4 py-2 text-xs font-medium rounded-lg bg-[#e6a720] text-black hover:bg-[#f4c542] transition-all"
+          className="mt-2 px-4 py-2 text-xs font-medium rounded-lg transition-all"
+          style={{
+            backgroundColor: theme.accent,
+            color: settings.themeMode === 'dark' ? '#000' : '#fff',
+          }}
         >
           Import Theme JSON
         </button>

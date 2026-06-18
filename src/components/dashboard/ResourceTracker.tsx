@@ -12,6 +12,11 @@ interface Props {
   timeWindow: TimeWindowMs;
 }
 
+/**
+ * Resource extractor tracker showing all miners and extractors
+ * with production rates, resource node info, and search filtering.
+ * Supports time-buffered averaging.
+ */
 export function ResourceTracker({ config, timeWindow }: Props) {
   const { theme } = useTheme();
   const [extractors, setExtractors] = useState<Extractor[] | null>(null);
@@ -146,10 +151,8 @@ export function ResourceTracker({ config, timeWindow }: Props) {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Filter by name or resource..."
-        className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none transition-colors"
-        style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.borderColor}`, color: theme.textPrimary }}
-        onFocus={(e) => (e.target.style.borderColor = theme.accent)}
-        onBlur={(e) => (e.target.style.borderColor = theme.borderColor)}
+        className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none transition-colors search-input"
+        style={{ backgroundColor: theme.bgCard, borderColor: theme.borderColor, color: theme.textPrimary, borderWidth: '1px', borderStyle: 'solid' }}
       />
 
       {/* Extractor List — grouped by type */}

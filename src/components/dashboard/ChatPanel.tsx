@@ -9,6 +9,10 @@ interface Props {
   config: FRMConfig;
 }
 
+/**
+ * In-game chat panel that polls the FRM server for chat messages
+ * and allows the user to send messages to players in-game.
+ */
 export function ChatPanel({ config }: Props) {
   const { theme } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -140,18 +144,14 @@ export function ChatPanel({ config }: Props) {
           onKeyDown={handleKeyDown}
           placeholder="Type a message... (Enter to send)"
           rows={1}
-          className="flex-1 rounded-lg px-4 py-2.5 text-sm focus:outline-none transition-colors resize-none"
-          style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.borderColor}`, color: theme.textPrimary }}
-          onFocus={(e) => (e.target.style.borderColor = theme.accent)}
-          onBlur={(e) => (e.target.style.borderColor = theme.borderColor)}
+          className="flex-1 rounded-lg px-4 py-2.5 text-sm focus:outline-none transition-colors resize-none search-input"
+          style={{ backgroundColor: theme.bgCard, borderColor: theme.borderColor, color: theme.textPrimary, borderWidth: '1px', borderStyle: 'solid' }}
         />
         <button
           onClick={handleSend}
           disabled={sending || !input.trim()}
-          className="px-4 py-2.5 rounded-lg text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          className="px-4 py-2.5 rounded-lg text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all btn-accent"
           style={{ backgroundColor: theme.accent }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = theme.accentHover)}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = theme.accent)}
         >
           {sending ? (
             <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">

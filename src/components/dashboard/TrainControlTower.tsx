@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { FRMConfig, TrainStation, TrainResponse, Railcar } from '@/lib/types';
 import { fetchEndpoint } from '@/lib/api';
 import { useTheme } from '@/lib/useTheme';
+import { formatNumber } from '@/lib/formatters';
+import { cleanName } from '@/lib/names';
 
 interface Props {
   config: FRMConfig;
@@ -21,6 +23,11 @@ const CTRL_BG = '#0a0f0a';
 
 /* ─── Helpers ─── */
 
+/**
+ * Maps Satisfactory world coordinates (UE cm) to a normalized [0,1] range
+ * based on known world bounds. Used by TrackMap to position stations and
+ * trains within the SVG viewport.
+ */
 function worldToGrid(wx: number, wz: number): [number, number] {
   return [
     (wx - WORLD_MIN) / (WORLD_MAX - WORLD_MIN),
@@ -28,19 +35,13 @@ function worldToGrid(wx: number, wz: number): [number, number] {
   ];
 }
 
-function fmtNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return n.toFixed(0);
-}
-
+/**
+ * Formats train speed in km/h with appropriate precision:
+ * speeds >= 100 show no decimals; slower speeds show one decimal.
+ */
 function fmtSpeed(kmh: number): string {
   if (kmh >= 100) return `${kmh.toFixed(0)}`;
   return kmh.toFixed(1);
-}
-
-function cleanName(name: string): string {
-  return name.replace(/^Build_/, '').replace(/_C$/, '').replace(/_/g, ' ');
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -196,6 +197,10 @@ export function TrainControlTower({ config }: Props) {
 /* ═══════════════════════════════════════════════════════
    Status Bar
    ═══════════════════════════════════════════════════════ */
+/**
+ * Status indicator bar showing train statistics: total trains,
+ * active vs. self-driving, stations, and next departure.
+ */
 function StatusBar({
   trains,
   stations,
@@ -229,6 +234,10 @@ function StatusBar({
   );
 }
 
+/**
+ * Single statistic block with icon, label, value, and optional
+ * delta change indicator. Used in StatusBar and detail panels.
+ */
 function StatBlock({
   label,
   value,
@@ -246,7 +255,7 @@ function StatBlock({
         {label}
       </span>
       <span className="text-lg font-bold font-mono" style={{ color }}>
-        {fmtNum(value)}
+        {formatNumber(value)}
       </span>
       {sub && (
         <span className="text-[9px] opacity-50" style={{ color }}>
@@ -260,6 +269,10 @@ function StatBlock({
 /* ═══════════════════════════════════════════════════════
    Departures Board
    ═══════════════════════════════════════════════════════ */
+/**
+ * Departures board showing the next few trains arriving at or
+ * departing from stations, with ETA countdown timers.
+ */
 function DeparturesBoard({
   trains,
   selected,
@@ -313,16 +326,10 @@ function DeparturesBoard({
             <tr
               key={train.ID}
               onClick={() => onSelect(train.ID)}
-              className="cursor-pointer border-b transition-colors"
+              className={`cursor-pointer border-b transition-colors train-row ${isSelected ? 'train-selected' : ''}`}
               style={{
                 borderColor: `${CTRL_GREEN}08`,
                 backgroundColor: isSelected ? `${CTRL_GREEN}15` : 'transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (!isSelected) e.currentTarget.style.backgroundColor = `${CTRL_GREEN}08`;
-              }}
-              onMouseLeave={(e) => {
-                if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
               <td className="px-3 py-1.5" style={{ color: isSelected ? CTRL_GREEN : moving ? '#ccd' : '#556' }}>
@@ -354,6 +361,11 @@ function DeparturesBoard({
 /* ═══════════════════════════════════════════════════════
    Track Map (SVG)
    ═══════════════════════════════════════════════════════ */
+/**
+ * SVG track map rendering all stations and active trains on a
+ * top-down grid view of the Satisfactory world. Supports pan
+ * and hover tooltips.
+ */
 function TrackMap({
   stations,
   trains,
@@ -543,6 +555,10 @@ function TrackMap({
 /* ═══════════════════════════════════════════════════════
    Train Detail Panel
    ═══════════════════════════════════════════════════════ */
+/**
+ * Detailed view of a single train showing its railcars, cargo,
+ * and current status. Clicking a station navigates to its detail.
+ */
 function TrainDetail({ train, onSelectStation }: { train: TrainResponse | null; onSelectStation: (id: string) => void }) {
   if (!train) {
     return <p className="text-[10px] opacity-40" style={{ color: CTRL_GREEN }}>Select a train</p>;
@@ -627,6 +643,10 @@ function DetailRow({
 /* ═══════════════════════════════════════════════════════
    Station Detail Panel
    ═══════════════════════════════════════════════════════ */
+/**
+ * Detailed view of a single train station showing cargo inventory,
+ * fuel, connected trains, and location on the grid.
+ */
 function StationDetail({ station }: { station: TrainStation | null }) {
   if (!station) {
     return <p className="text-[10px] opacity-40" style={{ color: CTRL_GREEN }}>Select a station</p>;
@@ -661,7 +681,7 @@ function StationDetail({ station }: { station: TrainStation | null }) {
               >
                 <span className="truncate" style={{ color: '#889' }}>{item.Name}</span>
                 <span className="font-bold shrink-0" style={{ color: CTRL_AMBER }}>
-                  {fmtNum(item.Amount)}
+                  {formatNumber(item.Amount)}
                 </span>
               </div>
             ))}
@@ -675,6 +695,11 @@ function StationDetail({ station }: { station: TrainStation | null }) {
 /* ═══════════════════════════════════════════════════════
    Overview Panel (no selection)
    ═══════════════════════════════════════════════════════ */
+/**
+ * Overview panel showing a summary of all trains and stations
+ * in a compact card layout. Serves as the default view when
+ * no train or station is selected.
+ */
 function OverviewPanel({
   stations,
   trains,
@@ -703,7 +728,7 @@ function OverviewPanel({
               >
                 <span className="text-[10px] truncate" style={{ color: '#778' }}>{cleanName(s.Name)}</span>
                 <span className="text-[10px] font-bold font-mono shrink-0" style={{ color: CTRL_AMBER }}>
-                  {fmtNum(total)}
+                  {formatNumber(total)}
                 </span>
               </div>
             );

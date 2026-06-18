@@ -4,8 +4,8 @@
  * We also test the pure helper functions directly.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { averageProdStats, averagePowerStats } from '../useTimeBuffer';
-import type { ProdStatSnapshot, PowerSnapshot } from '../useTimeBuffer';
+import { averageProdStats, averagePowerStats, extractItemTimeSeries } from '../useTimeBuffer';
+import type { ProdStatSnapshot, PowerSnapshot, ProdTimePoint } from '../useTimeBuffer';
 
 // ─── averageProdStats ─────────────────────────────────────────────
 
@@ -115,6 +115,69 @@ describe('averagePowerStats', () => {
       { totalProd: 500, totalConsumed: 300, totalCapacity: 1000, totalMaxConsumed: 800 },
     ]);
     expect(result.totalProd).toBe(500);
+  });
+});
+
+// ─── extractItemTimeSeries ─────────────────────────────────────────
+
+describe('extractItemTimeSeries', () => {
+  const makeSnapshots = (batches: { ironProd: number; ironCons: number; copperProd?: number; copperCons?: number }[]) =>
+    batches.map((b) => {
+      const items: ProdStatSnapshot[] = [
+        { Name: 'Iron Plate', ClassName: 'Desc_IronPlate_C', CurrentProd: b.ironProd, MaxProd: 40, CurrentConsumed: b.ironCons, MaxConsumed: 20 },
+      ];
+      if (b.copperProd !== undefined) {
+        items.push({ Name: 'Copper Wire', ClassName: 'Desc_CopperWire_C', CurrentProd: b.copperProd, MaxProd: 60, CurrentConsumed: b.copperCons ?? 0, MaxConsumed: 30 });
+      }
+      return items;
+    });
+
+  it('returns empty array for empty input', () => {
+    expect(extractItemTimeSeries([], 'Desc_IronPlate_C')).toEqual([]);
+  });
+
+  it('returns empty array when no snapshot contains the item', () => {
+    const snapshots = makeSnapshots([{ ironProd: 10, ironCons: 5 }]);
+    expect(extractItemTimeSeries(snapshots, 'Desc_Nonexistent_C')).toEqual([]);
+  });
+
+  it('extracts prod and cons values across snapshots with index-based timestamps', () => {
+    const snapshots = makeSnapshots([
+      { ironProd: 10, ironCons: 5 },
+      { ironProd: 20, ironCons: 10 },
+      { ironProd: 15, ironCons: 8 },
+    ]);
+    const result = extractItemTimeSeries(snapshots, 'Desc_IronPlate_C');
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({ timestamp: 0, prod: 10, cons: 5 });
+    expect(result[1]).toEqual({ timestamp: 1, prod: 20, cons: 10 });
+    expect(result[2]).toEqual({ timestamp: 2, prod: 15, cons: 8 });
+  });
+
+  it('skips snapshots where the item is missing', () => {
+    const batches: ProdStatSnapshot[][] = [
+      [{ Name: 'Iron Plate', ClassName: 'Desc_IronPlate_C', CurrentProd: 10, MaxProd: 40, CurrentConsumed: 5, MaxConsumed: 20 }],
+      [{ Name: 'Iron Rod', ClassName: 'Desc_IronRod_C', CurrentProd: 30, MaxProd: 40, CurrentConsumed: 15, MaxConsumed: 20 }], // missing Iron Plate
+      [{ Name: 'Iron Plate', ClassName: 'Desc_IronPlate_C', CurrentProd: 25, MaxProd: 40, CurrentConsumed: 12, MaxConsumed: 20 }],
+    ];
+    const result = extractItemTimeSeries(batches, 'Desc_IronPlate_C');
+    // Only snapshots 0 and 2 have Iron Plate
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ timestamp: 0, prod: 10, cons: 5 });
+    expect(result[1]).toEqual({ timestamp: 2, prod: 25, cons: 12 });
+  });
+
+  it('extracts only the requested item when multiple items exist', () => {
+    const snapshots = makeSnapshots([
+      { ironProd: 10, ironCons: 5, copperProd: 30, copperCons: 15 },
+      { ironProd: 20, ironCons: 10, copperProd: 35, copperCons: 18 },
+    ]);
+    const ironResult = extractItemTimeSeries(snapshots, 'Desc_IronPlate_C');
+    const copperResult = extractItemTimeSeries(snapshots, 'Desc_CopperWire_C');
+    expect(ironResult).toHaveLength(2);
+    expect(copperResult).toHaveLength(2);
+    expect(ironResult[0].prod).toBe(10);
+    expect(copperResult[0].prod).toBe(30);
   });
 });
 

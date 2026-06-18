@@ -1,3 +1,4 @@
+/** Connection config for the FRM (Ficsit Remote Monitoring) mod server. */
 export interface FRMConfig {
   host: string;
   port: string;
@@ -92,6 +93,7 @@ export interface BuildableBase {
   features?: Features;
 }
 
+/** A factory production building with recipe, efficiency, and inventory data. */
 export interface FactoryBuilding extends BuildableBase {
   Recipe: string;
   RecipeClassName: string;
@@ -108,6 +110,7 @@ export interface FactoryBuilding extends BuildableBase {
   IsPaused: boolean;
 }
 
+/** A single power circuit with production, consumption, battery, and fuse state. */
 export interface PowerCircuit {
   CircuitGroupID: number;
   CircuitID: number;
@@ -125,6 +128,7 @@ export interface PowerCircuit {
   FuseTriggered: boolean;
 }
 
+/** A power generator building with fuel, production capacity, and load data. */
 export interface Generator extends BuildableBase {
   CircuitID: number;
   BaseProd: number;
@@ -214,6 +218,7 @@ export interface ResourceSinkData {
   sink_type?: string;
 }
 
+/** Theme color tokens applied as CSS variables via ThemeProvider. */
 export interface DashboardTheme {
   bgPrimary: string;
   bgSecondary: string;
@@ -229,6 +234,7 @@ export interface DashboardTheme {
   muted: string;
 }
 
+/** User-facing application settings persisted to localStorage. */
 export interface AppSettings {
   /** Icon size for ProductionMonitor / Inventory cards */
   iconSize: 'sm' | 'md' | 'lg';
@@ -240,6 +246,8 @@ export interface AppSettings {
   timeWindow: number;
   /** Visible layers on the Factory Map */
   mapVisibleLayers: string[];
+  /** Visual theme mode: dark (default) or light */
+  themeMode: 'dark' | 'light';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -248,6 +256,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   activeTab: 'power',
   timeWindow: 0,
   mapVisibleLayers: ['factory', 'generator', 'extractor', 'player'],
+  themeMode: 'dark',
 };
 
 export const DEFAULT_THEME: DashboardTheme = {
@@ -263,6 +272,22 @@ export const DEFAULT_THEME: DashboardTheme = {
   danger: '#e74c3c',
   info: '#3498db',
   muted: '#606060',
+};
+
+/** Light-mode theme preset — clean white/blue palette with dark text. */
+export const LIGHT_THEME: DashboardTheme = {
+  bgPrimary: '#f5f5f7',
+  bgSecondary: '#ffffff',
+  bgCard: '#ffffff',
+  borderColor: '#d4d4d8',
+  textPrimary: '#18181b',
+  textSecondary: '#71717a',
+  accent: '#2563eb',
+  accentHover: '#3b82f6',
+  success: '#16a34a',
+  danger: '#dc2626',
+  info: '#0ea5e9',
+  muted: '#a1a1aa',
 };
 
 /** Train station (from getTrainStation) */

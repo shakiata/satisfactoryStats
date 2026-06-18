@@ -409,12 +409,17 @@ interface DashboardTheme {
 }
 ```
 
+**`DEFAULT_THEME`** — dark theme with Ficsit orange accent (the default).
+
+**`LIGHT_THEME`** — light theme with blue accent, used when `AppSettings.themeMode === 'light'`.
+
 ### `AppSettings`
 
 Persistent UI preferences stored in localStorage as `frm-app-settings`.
 
 ```typescript
 interface AppSettings {
+  themeMode: "dark" | "light"; // Color mode (default: "dark")
   iconSize: "sm" | "md" | "lg"; // Production/Inventory card icon size
   mapIconScale: number; // Map icon scale (0.5–2.0)
   activeTab: string; // Last active dashboard tab
@@ -427,6 +432,7 @@ interface AppSettings {
 
 ```typescript
 const DEFAULT_SETTINGS: AppSettings = {
+  themeMode: "dark",
   iconSize: "md",
   mapIconScale: 1,
   activeTab: "power",

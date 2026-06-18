@@ -69,6 +69,39 @@ export interface ProdStatSnapshot {
  * Given N snapshots of ProdStatItem[], merge them into a single
  * array where each item's rates are averaged across the window.
  */
+/** A single data point for the production vs consumption time-series chart. */
+export interface ProdTimePoint {
+  timestamp: number;
+  prod: number;
+  cons: number;
+}
+
+/**
+ * Extracts a time-series of production and consumption values for a specific
+ * item from the buffered snapshots. Each snapshot is searched for the matching
+ * ClassName, and if found, a { timestamp, prod, cons } point is emitted.
+ * Points are sorted chronologically.
+ *
+ * @param snapshots - Chronological array of ProdStatItem[] snapshots from the buffer.
+ * @param className - The ClassName of the item to track.
+ * @returns Ordered array of time-points suitable for a line chart.
+ */
+export function extractItemTimeSeries(
+  snapshots: ProdStatSnapshot[][],
+  className: string,
+): ProdTimePoint[] {
+  // We pair each snapshot with an incrementing timestamp counter since we
+  // don't have real timestamps per-snapshot in the averaged data. For the
+  // live buffer (TimedEntry<T>[]), extraction happens in the component.
+  return snapshots
+    .map((batch, idx) => {
+      const item = batch.find((i) => i.ClassName === className);
+      if (!item) return null;
+      return { timestamp: idx, prod: item.CurrentProd, cons: item.CurrentConsumed };
+    })
+    .filter((p): p is ProdTimePoint => p !== null);
+}
+
 export function averageProdStats(snapshots: ProdStatSnapshot[][]): ProdStatSnapshot[] {
   if (snapshots.length === 0) return [];
   const map = new Map<string, { sumProd: number; sumCons: number; count: number; maxProd: number; maxCons: number; name: string }>();

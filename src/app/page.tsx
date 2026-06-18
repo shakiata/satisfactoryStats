@@ -38,6 +38,12 @@ const TABS = [
 
 type TabId = typeof TABS[number]['id'];
 
+/**
+ * Root dashboard page — the single-page shell that orchestrates
+ * connection state, tab navigation, time-window selection, and
+ * rendering of all dashboard panels. This is the sole page in
+ * the Next.js static-export app.
+ */
 export default function Home() {
   const { config, saveConfig, loaded } = useConfig();
   const { settings, saveSettings, loaded: settingsLoaded } = useAppSettings();
@@ -162,22 +168,10 @@ export default function Home() {
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className="px-4 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-all"
+              className={`px-4 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-all tab-btn ${activeTab === tab.id ? 'tab-active' : ''}`}
                 style={{
                   borderColor: activeTab === tab.id ? 'var(--accent)' : 'transparent',
                   color: activeTab === tab.id ? 'var(--accent)' : 'var(--text-secondary)',
-                }}
-                onMouseEnter={(e) => {
-                  if (activeTab !== tab.id) {
-                    e.currentTarget.style.color = 'var(--text-primary)';
-                    e.currentTarget.style.borderColor = 'var(--border-color)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (activeTab !== tab.id) {
-                    e.currentTarget.style.color = 'var(--text-secondary)';
-                    e.currentTarget.style.borderColor = 'transparent';
-                  }
                 }}
               >
                 {tab.label}

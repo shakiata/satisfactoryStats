@@ -12,6 +12,11 @@ interface Props {
   timeWindow: TimeWindowMs;
 }
 
+/**
+ * Generators dashboard showing all power-generation buildings
+ * with fuel levels, production load, and expandable detail rows.
+ * Supports time-buffered averaging via the global time window.
+ */
 export function GeneratorStatus({ config, timeWindow }: Props) {
   const { theme } = useTheme();
   const [generators, setGenerators] = useState<Generator[] | null>(null);

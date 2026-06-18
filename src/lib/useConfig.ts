@@ -12,6 +12,10 @@ export const defaultConfig: FRMConfig = {
   refreshRate: 5000,
 };
 
+/**
+ * Hook that persists FRM connection config (host, port, auth token)
+ * to localStorage and provides setter + persistence callbacks.
+ */
 export function useConfig() {
   const [config, setConfig] = useState<FRMConfig>(defaultConfig);
   const [loaded, setLoaded] = useState(false);

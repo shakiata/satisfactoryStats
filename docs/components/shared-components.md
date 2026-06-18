@@ -48,6 +48,32 @@ interface ConnectionBarProps {
 
 ---
 
+## ItemIcon
+
+`src/components/ui/ItemIcon.tsx`
+
+**Purpose:** Shared item icon component extracted from `InventoryPanel` and `ProductionMonitor`. Renders a PNG icon from `public/Icons/` or falls back to a colored initial circle using a deterministic hash-based color (`nameToColor`).
+
+### Props
+
+```typescript
+interface ItemIconProps {
+  className?: string;
+  name: string;
+  size?: number; // default: 32
+  prod?: number; // production rate — tints background green when > cons
+  cons?: number; // consumption rate — tints background red when > prod
+}
+```
+
+### Behavior
+
+- Loads `public/Icons/{className}.png`; shows initials on error.
+- When `prod` and `cons` are provided, background color indicates net balance.
+- Uses an internal `nameToColor()` fallback to avoid `'use client'` boundary issues.
+
+---
+
 ## EndpointList
 
 `src/components/EndpointList.tsx`
