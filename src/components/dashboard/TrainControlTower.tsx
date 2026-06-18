@@ -591,7 +591,7 @@ function TrainDetail({ train, onSelectStation }: { train: TrainResponse | null; 
                   }}
                 >
                   <span className="w-4 text-right opacity-40">{i + 1}</span>
-                  <span>{cleanName(stop)}</span>
+                  <span>{cleanName(stop.StationName)}</span>
                   {isCurrent && (
                     <span className="ml-auto text-[8px] px-1 rounded" style={{ backgroundColor: `${CTRL_GREEN}20`, color: CTRL_GREEN }}>
                       NOW
