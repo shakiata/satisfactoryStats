@@ -10,7 +10,7 @@ All UI components live under `src/components/`. They are React 19 Client Compone
 page.tsx (tab router)
 ├── ConnectionBar           ← Always visible (connection management)
 ├── TimeWindowSelector      ← Visible when connected (shared across tabs)
-└── [active tab component]  ← One of 12 tab panels
+└── [active tab component]  ← One of 13 tab panels
     ├── PowerDashboard
     ├── ProductionMonitor
     ├── FactoryEfficiency
@@ -18,6 +18,7 @@ page.tsx (tab router)
     ├── GeneratorStatus
     ├── ResourceTracker
     ├── InventoryPanel
+    ├── FluidDashboard
     ├── PlayerMap
     ├── ChatPanel
     ├── TrainControlTower
@@ -112,6 +113,7 @@ const TABS = [
   { id: "map", label: "🗺️ Map", icon: "🗺️" },
   { id: "trains", label: "🚂 Trains", icon: "🚂" },
   { id: "inventory", label: "📦 Inventory", icon: "📦" },
+  { id: "fluids", label: "💧 Fluids", icon: "💧" },
   { id: "players", label: "👤 Players", icon: "👤" },
   { id: "chat", label: "💬 Chat", icon: "💬" },
   { id: "settings", label: "🎨 Settings", icon: "🎨" },

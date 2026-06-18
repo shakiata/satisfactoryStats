@@ -86,6 +86,7 @@ The Next.js config sets `output: "export"` and `assetPrefix: "./"` so the static
 4. **Each dashboard panel** polls relevant endpoints on a `setInterval` matching `config.refreshRate`
 5. **`useTimeBuffer`** accumulates timestamped snapshots (max 1 hour) for windowed averaging
 6. **`useTheme`** injects CSS custom properties into `document.documentElement` from localStorage or defaults
+7. **Fluid detection** — `lib/fluids.ts` builds a `Set<string>` of fluid ClassNames from recipe data (cached), then filters production stats and optionally traces raw materials through the recipe graph
 
 ### Connection URL Logic
 
@@ -122,16 +123,18 @@ satisfactoryStats/
 │   │       ├── ChatPanel.tsx
 │   │       ├── FactoryEfficiency.tsx
 │   │       ├── FactoryMap.tsx
-│   │       ├── GeneratorStatus.tsx
-│   │       ├── InventoryPanel.tsx
-│   │       ├── PlayerMap.tsx
-│   │       ├── PowerDashboard.tsx
-│   │       ├── ProductionMonitor.tsx
-│   │       ├── ResourceTracker.tsx
-│   │       ├── SettingsPanel.tsx
-│   │       └── TrainControlTower.tsx
-│   └── lib/
-│       ├── api.ts          # FRM API client + endpoint registry
+    │       ├── FluidDashboard.tsx
+    │       ├── GeneratorStatus.tsx
+    │       ├── InventoryPanel.tsx
+    │       ├── PlayerMap.tsx
+    │       ├── PowerDashboard.tsx
+    │       ├── ProductionMonitor.tsx
+    │       ├── ResourceTracker.tsx
+    │       ├── SettingsPanel.tsx
+    │       └── TrainControlTower.tsx
+    └── lib/
+        ├── api.ts          # FRM API client + endpoint registry
+        ├── fluids.ts       # Fluid identification + raw material tracing
 │       ├── types.ts        # TypeScript type definitions
 │       ├── useConfig.ts    # FRM config persistence hook
 │       ├── useAppSettings.ts # UI preferences hook

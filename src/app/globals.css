@@ -64,3 +64,9 @@ body {
 .train-row:not(.train-selected):hover {
   background-color: color-mix(in srgb, #00ff88 3%, transparent) !important;
 }
+
+/* Fluid card hover in FluidDashboard — subtle blue tint on hover */
+.fluid-card:not([style*="border-color: var(--accent)"]):hover {
+  background-color: color-mix(in srgb, var(--info) 5%, transparent) !important;
+  border-color: var(--info) !important;
+}

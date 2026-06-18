@@ -176,6 +176,16 @@ export interface ProdStatItem {
   MaxConsumed: number;
 }
 
+/** Flattened prod-stat snapshot used for time-series averaging (see useTimeBuffer). */
+export interface ProdStatSnapshot {
+  Name: string;
+  ClassName: string;
+  CurrentProd: number;
+  MaxProd: number;
+  CurrentConsumed: number;
+  MaxConsumed: number;
+}
+
 export interface Vehicle extends BuildableBase {
   vehicle_type?: string;
   fuel_type?: string;

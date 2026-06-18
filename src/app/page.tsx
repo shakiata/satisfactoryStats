@@ -15,6 +15,7 @@ import { InventoryPanel } from '@/components/dashboard/InventoryPanel';
 import { ChatPanel } from '@/components/dashboard/ChatPanel';
 import { TrainControlTower } from '@/components/dashboard/TrainControlTower';
 import { SettingsPanel } from '@/components/dashboard/SettingsPanel';
+import { FluidDashboard } from '@/components/dashboard/FluidDashboard';
 import { useConfig } from '@/lib/useConfig';
 import { useAppSettings } from '@/lib/useAppSettings';
 import { ThemeProvider, useTheme } from '@/lib/useTheme';
@@ -33,6 +34,7 @@ const TABS = [
   { id: 'players', label: '👤 Players', icon: '👤' },
   { id: 'chat', label: '💬 Chat', icon: '💬' },
   { id: 'settings', label: '🎨 Settings', icon: '🎨' },
+  { id: 'fluids', label: '💧 Fluids', icon: '💧' },
   { id: 'api', label: '🔧 API Explorer', icon: '🔧' },
 ] as const;
 
@@ -195,6 +197,7 @@ export default function Home() {
             {activeTab === 'players' && <PlayerMap config={config} />}
             {activeTab === 'chat' && <ChatPanel config={config} />}
             {activeTab === 'settings' && <SettingsPanel config={config} saveConfig={saveConfig} settings={settings} saveSettings={saveSettings} />}
+            {activeTab === 'fluids' && <FluidDashboard config={config} timeWindow={timeWindow} settings={settings} />}
             {activeTab === 'api' && (
               <EndpointList
                 config={config}

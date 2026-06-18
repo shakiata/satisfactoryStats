@@ -9,7 +9,12 @@ import {
   DEFAULT_THEME,
   LIGHT_THEME,
 } from '../types';
-import type { AppSettings, DashboardTheme } from '../types';
+import type {
+  AppSettings,
+  DashboardTheme,
+  ProdStatSnapshot,
+} from '../types';
+import type { FluidSummary } from '../fluids';
 
 // ─── DEFAULT_SETTINGS ────────────────────────────────────────────
 
@@ -175,5 +180,71 @@ describe('type imports', () => {
   it('LocationData type is structurally sound (compile-time check)', () => {
     const loc = { x: 100, y: 200, z: 300 };
     expect(loc.x).toBe(100);
+  });
+});
+
+// ─── ProdStatSnapshot ────────────────────────────────────────────
+
+describe('ProdStatSnapshot', () => {
+  it('accepts all required fields', () => {
+    const snap: ProdStatSnapshot = {
+      Name: 'Desc_Water_C',
+      ClassName: 'Desc_Water_C',
+      CurrentProd: 300,
+      MaxProd: 600,
+      CurrentConsumed: 200,
+      MaxConsumed: 600,
+    };
+    expect(snap.CurrentProd).toBe(300);
+    expect(snap.CurrentConsumed).toBe(200);
+  });
+
+  it('allows zero values', () => {
+    const snap: ProdStatSnapshot = {
+      Name: 'Idle',
+      ClassName: 'Desc_Idle_C',
+      CurrentProd: 0,
+      MaxProd: 150,
+      CurrentConsumed: 0,
+      MaxConsumed: 0,
+    };
+    expect(snap.MaxProd).toBe(150);
+    expect(snap.MaxConsumed).toBe(0);
+  });
+});
+
+// ─── FluidSummary (from fluids.ts) ──────────────────────────────
+
+describe('FluidSummary', () => {
+  it('accepts a valid fluid summary object', () => {
+    const summary: FluidSummary = {
+      name: 'Water',
+      className: 'Desc_Water_C',
+      prodPerMin: 300,
+      consPerMin: 200,
+      netPerMin: 100,
+      maxProd: 600,
+      maxCons: 600,
+      storedAmount: 5000,
+      isGas: false,
+    };
+    expect(summary.prodPerMin).toBe(300);
+    expect(summary.isGas).toBe(false);
+  });
+
+  it('isGas is true for Nitrogen', () => {
+    const summary: FluidSummary = {
+      name: 'Nitrogen Gas',
+      className: 'Desc_NitrogenGas_C',
+      prodPerMin: 60,
+      consPerMin: 0,
+      netPerMin: 60,
+      maxProd: 120,
+      maxCons: 0,
+      storedAmount: 0,
+      isGas: true,
+    };
+    expect(summary.isGas).toBe(true);
+    expect(summary.netPerMin).toBe(60);
   });
 });
