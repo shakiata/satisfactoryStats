@@ -1,8 +1,7 @@
 'use client';
 
 import { useTheme } from '@/lib/useTheme';
-import { useAppSettings } from '@/lib/useAppSettings';
-import { DashboardTheme, DEFAULT_THEME, DEFAULT_SETTINGS, FRMConfig } from '@/lib/types';
+import { DashboardTheme, DEFAULT_THEME, DEFAULT_SETTINGS, FRMConfig, AppSettings } from '@/lib/types';
 import { defaultConfig } from '@/lib/useConfig';
 
 interface ColorRowProps {
@@ -102,11 +101,12 @@ const CSS_VARS: Record<keyof DashboardTheme, string> = {
 interface SettingsPanelProps {
   config: FRMConfig;
   saveConfig: (config: FRMConfig) => void;
+  settings: AppSettings;
+  saveSettings: (partial: Partial<AppSettings>) => void;
 }
 
-export function SettingsPanel({ config, saveConfig }: SettingsPanelProps) {
+export function SettingsPanel({ config, saveConfig, settings, saveSettings }: SettingsPanelProps) {
   const { theme, updateTheme, resetTheme } = useTheme();
-  const { settings, saveSettings, resetSettings } = useAppSettings();
 
   const isDefault = Object.keys(DEFAULT_THEME).every(
     (k) => theme[k as keyof DashboardTheme] === DEFAULT_THEME[k as keyof DashboardTheme]
@@ -240,7 +240,7 @@ export function SettingsPanel({ config, saveConfig }: SettingsPanelProps) {
         {/* Reset Appearance */}
         <div className="mt-3 pt-3 border-t border-[#2a2a2e]">
           <button
-            onClick={resetSettings}
+            onClick={() => saveSettings(DEFAULT_SETTINGS)}
             disabled={isSettingsDefault}
             className="px-4 py-2 text-xs font-medium rounded-lg border transition-all
               bg-[#0a0a0a] border-[#2a2a2e] text-[#f0f0f0] hover:border-[#e74c3c] hover:text-[#e74c3c]

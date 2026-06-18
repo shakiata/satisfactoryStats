@@ -75,3 +75,26 @@ If you host your game locally (not on a dedicated server), your FRM server is on
 5. They're now viewing your factory stats through the tunnel — no port forwarding, no VPN, no IP sharing
 
 > **Note:** Your ngrok authtoken stays on your machine only — nothing is embedded in the app. The free tier works indefinitely but has a "visit warning" page that Statusfactory automatically bypasses. Each tunnel restart gives you a new URL.
+
+## Documentation
+
+Full docs live in [`docs/`](./docs/):
+
+| Document                                                  | Topic                                        |
+| --------------------------------------------------------- | -------------------------------------------- |
+| [getting-started.md](./docs/getting-started.md)           | Setup, scripts, ngrok, troubleshooting       |
+| [architecture.md](./docs/architecture.md)                 | System design, data flow, build pipeline     |
+| [api-client.md](./docs/api-client.md)                     | FRM API client reference (all 80+ endpoints) |
+| [types.md](./docs/types.md)                               | TypeScript type definitions                  |
+| [hooks.md](./docs/hooks.md)                               | Custom React hooks                           |
+| [theme-and-styling.md](./docs/theme-and-styling.md)       | CSS vars, Tailwind, ThemeProvider            |
+| [electron-integration.md](./docs/electron-integration.md) | Electron main/preload/IPC                    |
+| [components/overview.md](./docs/components/overview.md)   | Shared component patterns & conventions      |
+| [testing.md](./docs/testing.md)                           | Test strategy & run instructions             |
+
+## Running Tests
+
+```bash
+npm test          # Run all Vitest tests once
+npm run test:watch  # Watch mode (re-run on changes)
+```

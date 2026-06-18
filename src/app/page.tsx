@@ -200,7 +200,7 @@ export default function Home() {
             {activeTab === 'inventory' && <InventoryPanel config={config} settings={settings} />}
             {activeTab === 'players' && <PlayerMap config={config} />}
             {activeTab === 'chat' && <ChatPanel config={config} />}
-            {activeTab === 'settings' && <SettingsPanel config={config} saveConfig={saveConfig} />}
+            {activeTab === 'settings' && <SettingsPanel config={config} saveConfig={saveConfig} settings={settings} saveSettings={saveSettings} />}
             {activeTab === 'api' && (
               <EndpointList
                 config={config}
