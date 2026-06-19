@@ -33,9 +33,9 @@ const TABS = [
   { id: 'inventory', label: '📦 Inventory', icon: '📦' },
   { id: 'players', label: '👤 Players', icon: '👤' },
   { id: 'chat', label: '💬 Chat', icon: '💬' },
-  { id: 'settings', label: '🎨 Settings', icon: '🎨' },
   { id: 'fluids', label: '💧 Fluids', icon: '💧' },
   { id: 'api', label: '🔧 API Explorer', icon: '🔧' },
+  { id: 'settings', label: '🎨 Settings', icon: '🎨' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];

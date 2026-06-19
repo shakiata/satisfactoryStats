@@ -4,15 +4,18 @@
  * through the recipe graph.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
+  getFluidSet,
   buildFluidSet,
+  isFluidClassName,
   isFluidItem,
   getFluidSummaries,
+  mergeExtractorFluids,
   traceRawMaterials,
 } from '@/lib/fluids';
-import type { FluidSummary } from '@/lib/fluids';
-import type { ProdStatSnapshot } from '@/lib/types';
+import type { FluidSummary, RawRecipe } from '@/lib/fluids';
+import type { ProdStatSnapshot, ProdStatItem, Extractor } from '@/lib/types';
 
 // ─── Test helpers ──────────────────────────────────────────────
 
@@ -24,6 +27,8 @@ function makeSampleSnapshots(): ProdStatSnapshot[] {
     { Name: 'Desc_IronIngot_C', ClassName: 'Desc_IronIngot_C', CurrentProd: 450, MaxProd: 900, CurrentConsumed: 400, MaxConsumed: 900 },
     { Name: 'Desc_AluminaSolution_C', ClassName: 'Desc_AluminaSolution_C', CurrentProd: 80, MaxProd: 160, CurrentConsumed: 80, MaxConsumed: 160 },
     { Name: 'Desc_NitrogenGas_C', ClassName: 'Desc_NitrogenGas_C', CurrentProd: 60, MaxProd: 120, CurrentConsumed: 0, MaxConsumed: 0 },
+    { Name: 'Desc_SulfuricAcid_C', ClassName: 'Desc_SulfuricAcid_C', CurrentProd: 40, MaxProd: 80, CurrentConsumed: 40, MaxConsumed: 80 },
+    { Name: 'Desc_HeavyOilResidue_C', ClassName: 'Desc_HeavyOilResidue_C', CurrentProd: 100, MaxProd: 200, CurrentConsumed: 60, MaxConsumed: 200 },
   ];
 }
 
@@ -32,11 +37,11 @@ function makeSampleSnapshots(): ProdStatSnapshot[] {
  * Water is an ingredient (fluid) of Alumina Solution.
  * Bauxite is a solid ingredient.
  */
-function makeSampleRecipes() {
+function makeSampleRecipes(): RawRecipe[] {
   return [
     {
       ClassName: 'Recipe_AluminaSolution_C',
-      Name: 'Alternate: Sloppy Alumina',
+      displayName: 'Alternate: Sloppy Alumina',
       products: [{ ClassName: 'Desc_AluminaSolution_C', Name: 'Alumina Solution', Amount: 80 }],
       ingredients: [
         { ClassName: 'Desc_Water_C', Name: 'Water', Amount: 100 },
@@ -46,44 +51,85 @@ function makeSampleRecipes() {
   ];
 }
 
-// ─── buildFluidSet ──────────────────────────────────────────────
+// ─── isFluidClassName ─────────────────────────────────────────
 
-describe('buildFluidSet', () => {
-  beforeEach(() => {
-    vi.resetModules();
-    // Clear the module-level cache — re-import is needed, so clear
-    // the require cache before each test.
-    vi.unmock('@/lib/api');
+describe('isFluidClassName', () => {
+  it('detects Desc_Liquid prefix items as liquids', () => {
+    expect(isFluidClassName('Desc_LiquidFuel_C')).toBe(true);
+    expect(isFluidClassName('Desc_LiquidTurboFuel_C')).toBe(true);
+    expect(isFluidClassName('Desc_LiquidBiofuel_C')).toBe(true);
   });
 
-  it('returns a Set<string> of fluid ClassNames from recipe data', async () => {
-    // Dynamic import to get a fresh module (bypass module-level cache)
-    const { buildFluidSet } = await import('@/lib/fluids');
-
-    // Mock fetchEndpoint (used internally via @/lib/api)
-    const { fetchEndpoint } = await import('@/lib/api');
-    const mockFetch = vi.mocked(fetchEndpoint).mockImplementation;
-
-    // We can't easily mock the internal fetchEndpoint call from fluids.ts
-    // because it imports fetchEndpoint directly. Let's skip the actual
-    // API-dependent test and test the pure functions instead.
-    // Real API-dependent tests go in integration.
+  it('detects Desc_Gas prefix items as gases', () => {
+    expect(isFluidClassName('Desc_GasSomething_C')).toBe(true);
   });
 
-  it('is exported and is a function', () => {
-    expect(typeof buildFluidSet).toBe('function');
+  it('detects embedded Gas in ClassName (e.g. NitrogenGas)', () => {
+    expect(isFluidClassName('Desc_NitrogenGas_C')).toBe(true);
+  });
+
+  it('excludes solid items with Gas in name (GasTank, GasMask, GasNobelisk)', () => {
+    expect(isFluidClassName('Desc_GasTank_C')).toBe(false);
+    expect(isFluidClassName('Desc_GasMask_C')).toBe(false);
+    expect(isFluidClassName('Desc_GasNobelisk_C')).toBe(false);
+  });
+
+  it('detects known unpackaged liquids from hardcoded set', () => {
+    expect(isFluidClassName('Desc_Water_C')).toBe(true);
+    expect(isFluidClassName('Desc_AluminaSolution_C')).toBe(true);
+    expect(isFluidClassName('Desc_SulfuricAcid_C')).toBe(true);
+    expect(isFluidClassName('Desc_NitricAcid_C')).toBe(true);
+    expect(isFluidClassName('Desc_HeavyOilResidue_C')).toBe(true);
+    expect(isFluidClassName('Desc_DarkMatterResidue_C')).toBe(true);
+    expect(isFluidClassName('Desc_IonizedFuel_C')).toBe(true);
+    expect(isFluidClassName('Desc_RocketFuel_C')).toBe(true);
+  });
+
+  it('detects liquids via word hints (Oil, Acid, Residue, Solution, Extract)', () => {
+    // Mod-added liquids that contain these words after Desc_
+    expect(isFluidClassName('Desc_SomeModOil_C')).toBe(true);
+    expect(isFluidClassName('Desc_ConcentratedAcid_C')).toBe(true);
+    expect(isFluidClassName('Desc_AlienResidue_C')).toBe(true);
+    expect(isFluidClassName('Desc_CustomSolution_C')).toBe(true);
+    expect(isFluidClassName('Desc_PlantExtract_C')).toBe(true);
+  });
+
+  it('returns false for solid items', () => {
+    expect(isFluidClassName('Desc_IronIngot_C')).toBe(false);
+    expect(isFluidClassName('Desc_CopperOre_C')).toBe(false);
+    expect(isFluidClassName('Desc_ModularFrame_C')).toBe(false);
+    expect(isFluidClassName('Desc_Computer_C')).toBe(false);
+  });
+});
+
+// ─── getFluidSet / buildFluidSet ────────────────────────────────
+
+describe('getFluidSet', () => {
+  it('returns a non-empty Set of fluid ClassNames', () => {
+    const set = getFluidSet();
+    expect(set).toBeInstanceOf(Set);
+    expect(set.size).toBeGreaterThan(0);
+    expect(set.has('Desc_Water_C')).toBe(true);
+    expect(set.has('Desc_LiquidFuel_C')).toBe(true);
+    expect(set.has('Desc_NitrogenGas_C')).toBe(true);
+    expect(set.has('Desc_IronIngot_C')).toBe(false);
+  });
+
+  it('is cached — second call returns the same Set instance', () => {
+    const a = getFluidSet();
+    const b = getFluidSet();
+    expect(a).toBe(b);
+  });
+
+  it('buildFluidSet is a legacy alias', () => {
+    expect(buildFluidSet()).toBe(getFluidSet());
   });
 });
 
 // ─── isFluidItem ────────────────────────────────────────────────
 
 describe('isFluidItem', () => {
-  const fluidSet = new Set<string>([
-    'Desc_Water_C',
-    'Desc_LiquidFuel_C',
-    'Desc_AluminaSolution_C',
-    'Desc_NitrogenGas_C',
-  ]);
+  const fluidSet = getFluidSet();
 
   it('returns true for known fluid ClassNames', () => {
     expect(isFluidItem('Desc_Water_C', fluidSet)).toBe(true);
@@ -96,8 +142,10 @@ describe('isFluidItem', () => {
     expect(isFluidItem('Desc_CopperOre_C', fluidSet)).toBe(false);
   });
 
-  it('returns false when fluidSet is empty', () => {
-    expect(isFluidItem('Desc_Water_C', new Set())).toBe(false);
+  it('returns true even when fluidSet is null (uses isFluidClassName directly)', () => {
+    // isFluidItem now uses isFluidClassName() internally, so a null fluidSet
+    // does not prevent detection — Water is always recognized as a fluid.
+    expect(isFluidItem('Desc_Water_C', null)).toBe(true);
   });
 });
 
@@ -198,9 +246,14 @@ describe('traceRawMaterials', () => {
     expect(names).not.toContain('Water');
   });
 
-  it('returns empty array when fluidSet is null', () => {
+  it('works even when fluidSet is null (uses isFluidClassName internally)', () => {
+    // traceRawMaterials no longer requires a non-null fluidSet — it uses
+    // isFluidClassName() for fluid classification.
     const materials = traceRawMaterials('Desc_AluminaSolution_C', null, recipes);
-    expect(materials).toEqual([]);
+    // Water is a fluid (isFluidClassName → true), Bauxite is solid
+    const names = materials.map((m) => m.name);
+    expect(names).toContain('Bauxite');
+    expect(names).not.toContain('Water');
   });
 
   it('returns empty array for non-existent ClassName', () => {
@@ -214,56 +267,103 @@ describe('traceRawMaterials', () => {
   });
 
   it('stops at maxDepth', () => {
-    // Build a deep chain: SolidA → FluidB → SolidC
+    // Build a deep chain: SolidA → LiquidB → LiquidC
+    // Desc_LiquidTestB_C is detected as a fluid by isFluidClassName (Desc_Liquid prefix).
+    // Desc_LiquidTestC_C is also a fluid.
     const deepRecipes = [
       {
         ClassName: 'Recipe_Deep_C',
         Name: 'Deep Recipe',
-        products: [{ ClassName: 'Desc_FluidB_C', Name: 'FluidB', Amount: 120 }],
+        products: [{ ClassName: 'Desc_LiquidTestB_C', Name: 'LiquidB', Amount: 120 }],
         ingredients: [{ ClassName: 'Desc_SolidA_C', Name: 'SolidA', Amount: 45 }],
       },
       {
         ClassName: 'Recipe_Deeper_C',
         Name: 'Deeper Recipe',
-        products: [{ ClassName: 'Desc_FluidC_C', Name: 'FluidC', Amount: 60 }],
-        ingredients: [{ ClassName: 'Desc_FluidB_C', Name: 'FluidB', Amount: 120 }],
+        products: [{ ClassName: 'Desc_LiquidTestC_C', Name: 'LiquidC', Amount: 60 }],
+        ingredients: [{ ClassName: 'Desc_LiquidTestB_C', Name: 'LiquidB', Amount: 120 }],
       },
     ];
-    const deepFluidSet = new Set(['Desc_FluidB_C', 'Desc_FluidC_C']);
 
-    const materials = traceRawMaterials('Desc_FluidC_C', deepFluidSet, deepRecipes, 1);
-    // At depth 1, we find Deep Recipe producing FluidC, which uses FluidB.
-    // FluidB is a fluid, so we recurse once more... wait, maxDepth=1 means
-    // depth 0 (the target), then depth 1 when entering walk() from the caller.
-    // walk() checks `if (depth > maxDepth)` — so depth=1 is allowed, but
-    // the recursion from walk for FluidB would pass depth=2 which exceeds.
-    // So we should only find what's directly in the producing recipe for FluidC,
-    // which is FluidB (a fluid). Since FluidB is a fluid, we recurse to get
-    // its ingredients (SolidA), but that's at depth 2 which is blocked.
-    // Result: no raw materials at depth 1.
+    // At maxDepth=1, we enter at depth 1 and find LiquidB (a fluid) as the
+    // ingredient of LiquidC. We need to recurse to find SolidA, but that
+    // would be depth 2 which is blocked. So result is empty.
+    const materials = traceRawMaterials('Desc_LiquidTestC_C', null, deepRecipes, 1);
     expect(materials).toEqual([]);
   });
 
+  it('merges fluid production from extractors into items', () => {
+    const items: ProdStatItem[] = [
+      { Name: 'Cable', ClassName: 'Desc_Cable_C', CurrentProd: 10, MaxProd: 20, CurrentConsumed: 0, MaxConsumed: 0, ProdPerMin: '', ProdPercent: 50, ConsPercent: 0 },
+    ];
+    const extractors: Extractor[] = [
+      { production: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentProd: 100, MaxProd: 120, ProdPercent: 80 }] } as Extractor,
+    ];
+    const result = mergeExtractorFluids(items, extractors);
+    expect(result).toHaveLength(2);
+    const water = result.find((i) => i.ClassName === 'Desc_Water_C');
+    expect(water).toBeDefined();
+    expect(water!.CurrentProd).toBe(100);
+    expect(water!.MaxProd).toBe(120);
+    expect(water!.Name).toBe('Water');
+  });
+
+  it('aggregates same ClassName across multiple extractors', () => {
+    const extractors: Extractor[] = [
+      { production: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentProd: 60, MaxProd: 120, ProdPercent: 50 }] } as Extractor,
+      { production: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentProd: 60, MaxProd: 120, ProdPercent: 100 }] } as Extractor,
+    ];
+    const result = mergeExtractorFluids([], extractors);
+    expect(result).toHaveLength(1);
+    expect(result[0].CurrentProd).toBe(120);
+    expect(result[0].MaxProd).toBe(240);
+    expect(result[0].ProdPercent).toBe(75); // average of 50 and 100
+  });
+
+  it('skips non-fluid extractor production (e.g. Coal from Miner)', () => {
+    const extractors: Extractor[] = [
+      { production: [{ Name: 'Coal', ClassName: 'Desc_Coal_C', CurrentProd: 30, MaxProd: 60, ProdPercent: 50 }] } as Extractor,
+    ];
+    const result = mergeExtractorFluids([], extractors);
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns items unchanged when extractors is null', () => {
+    const items: ProdStatItem[] = [
+      { Name: 'Cable', ClassName: 'Desc_Cable_C', CurrentProd: 10, MaxProd: 20, CurrentConsumed: 0, MaxConsumed: 0, ProdPerMin: '', ProdPercent: 50, ConsPercent: 0 },
+    ];
+    const result = mergeExtractorFluids(items, null);
+    expect(result).toEqual(items);
+  });
+
+  it('returns items unchanged when extractors is empty', () => {
+    const items: ProdStatItem[] = [
+      { Name: 'Cable', ClassName: 'Desc_Cable_C', CurrentProd: 10, MaxProd: 20, CurrentConsumed: 0, MaxConsumed: 0, ProdPerMin: '', ProdPercent: 50, ConsPercent: 0 },
+    ];
+    const result = mergeExtractorFluids(items, []);
+    expect(result).toEqual(items);
+  });
+
   it('respects visited set to avoid infinite loops', () => {
-    // Circular: RecipeA produces FluidX from FluidY, RecipeB produces FluidY from FluidX
+    // Circular: RecipeA produces LiquidX from LiquidY, RecipeB produces LiquidY from LiquidX
+    // Both are detected as fluids by isFluidClassName (Desc_Liquid prefix).
     const circularRecipes = [
       {
         ClassName: 'Recipe_CircularA_C',
         Name: 'Circular A',
-        products: [{ ClassName: 'Desc_FluidX_C', Name: 'FluidX', Amount: 50 }],
-        ingredients: [{ ClassName: 'Desc_FluidY_C', Name: 'FluidY', Amount: 25 }],
+        products: [{ ClassName: 'Desc_LiquidTestX_C', Name: 'LiquidX', Amount: 50 }],
+        ingredients: [{ ClassName: 'Desc_LiquidTestY_C', Name: 'LiquidY', Amount: 25 }],
       },
       {
         ClassName: 'Recipe_CircularB_C',
         Name: 'Circular B',
-        products: [{ ClassName: 'Desc_FluidY_C', Name: 'FluidY', Amount: 50 }],
-        ingredients: [{ ClassName: 'Desc_FluidX_C', Name: 'FluidX', Amount: 25 }],
+        products: [{ ClassName: 'Desc_LiquidTestY_C', Name: 'LiquidY', Amount: 50 }],
+        ingredients: [{ ClassName: 'Desc_LiquidTestX_C', Name: 'LiquidX', Amount: 25 }],
       },
     ];
-    const circularFluidSet = new Set(['Desc_FluidX_C', 'Desc_FluidY_C']);
 
-    // Should not hang — returns empty since both are fluids
-    const materials = traceRawMaterials('Desc_FluidX_C', circularFluidSet, circularRecipes);
+    // Should not hang — returns empty since both are fluids and never reach a solid
+    const materials = traceRawMaterials('Desc_LiquidTestX_C', null, circularRecipes);
     expect(materials).toEqual([]);
   });
 });

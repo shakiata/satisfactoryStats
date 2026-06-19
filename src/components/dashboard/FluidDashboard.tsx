@@ -14,8 +14,8 @@ import { useTheme } from '@/lib/useTheme';
 import { useTimeBuffer, averageProdStats } from '@/lib/useTimeBuffer';
 import { TIME_WINDOWS, type TimeWindowMs } from '@/components/TimeWindowSelector';
 import { formatNumber } from '@/lib/formatters';
-import { buildFluidSet, isFluidItem, getFluidSummaries, traceRawMaterials } from '@/lib/fluids';
-import type { FluidSummary, RawMaterialLink, FluidMachineEntry } from '@/lib/fluids';
+import { getFluidSummaries, traceRawMaterials, mergeExtractorFluids } from '@/lib/fluids';
+import type { FluidSummary, RawMaterialLink, FluidMachineEntry, RawRecipe } from '@/lib/fluids';
 
 interface Props {
   config: FRMConfig;
@@ -172,10 +172,6 @@ export function FluidDashboard({ config, timeWindow }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fluid identification
-  const [fluidSet, setFluidSet] = useState<Set<string> | null>(null);
-  const [fluidSetLoading, setFluidSetLoading] = useState(true);
-
   // World inventory for stored fluid estimates
   const [worldInv, setWorldInv] = useState<Map<string, number> | null>(null);
 
@@ -191,8 +187,17 @@ export function FluidDashboard({ config, timeWindow }: Props) {
   const [pipeCount, setPipeCount] = useState<number | null>(null);
   const [pumpCount, setPumpCount] = useState<number | null>(null);
 
-  // Time-series buffer
-  const { getWindowData } = useTimeBuffer(items);
+  /** Merge getProdStats items with fluid entries from getExtractor.
+   *  FRM reports fluid production (Water, Crude Oil) via getExtractor,
+   *  not getProdStats.  Placed before useTimeBuffer so the buffer
+   *  captures extractor fluids too. */
+  const allItems: ProdStatItem[] = useMemo(
+    () => mergeExtractorFluids(items, extractors),
+    [items, extractors],
+  );
+
+  // Time-series buffer — fed allItems so extractor fluids appear in historical windows
+  const { getWindowData } = useTimeBuffer(allItems);
 
   // UI state
   const [search, setSearch] = useState('');
@@ -215,19 +220,6 @@ export function FluidDashboard({ config, timeWindow }: Props) {
     }
   }, [config]);
 
-  /** Build fluid set from recipes — identifies which items are fluids. */
-  const fetchFluidSet = useCallback(async () => {
-    try {
-      const set = await buildFluidSet(config);
-      setFluidSet(set);
-    } catch {
-      // Fallback: empty set means no fluid filtering
-      setFluidSet(new Set());
-    } finally {
-      setFluidSetLoading(false);
-    }
-  }, [config]);
-
   /** Fetch world inventory for stored fluid estimates (one-time). */
   const fetchWorldInv = useCallback(async () => {
     try {
@@ -245,9 +237,8 @@ export function FluidDashboard({ config, timeWindow }: Props) {
   /** Fetch recipes for raw material tracing (one-time). */
   const fetchRecipes = useCallback(async () => {
     try {
-      // The buildFluidSet already fetches recipes, but it doesn't expose them.
-      // We do a separate fetch here for traceRawMaterials. If it fails, tracing
-      // is simply unavailable — not critical.
+      // Fetch recipe data for traceRawMaterials. Fluid detection itself
+      // uses synchronous isFluidClassName() and does not need recipes.
       const data = await fetchEndpoint<RawRecipe[]>(config, 'getRecipes');
       setRecipes(data);
     } catch {
@@ -310,7 +301,6 @@ export function FluidDashboard({ config, timeWindow }: Props) {
 
   useEffect(() => {
     fetchData();
-    fetchFluidSet();
     fetchWorldInv();
     fetchRecipes();
     fetchMachines();
@@ -318,30 +308,26 @@ export function FluidDashboard({ config, timeWindow }: Props) {
 
     const interval = setInterval(fetchData, config.refreshRate || 5000);
     return () => clearInterval(interval);
-  }, [fetchData, fetchFluidSet, fetchWorldInv, fetchRecipes, fetchMachines, fetchInfrastructure, config.refreshRate]);
+  }, [fetchData, fetchWorldInv, fetchRecipes, fetchMachines, fetchInfrastructure, config.refreshRate]);
 
   /* ── Derived data ──────────────────────────────────────── */
 
-  /** Snapshots as ProdStatSnapshot[][] for averaging. */
-  const rawSnapshots = items as unknown as ProdStatSnapshot[] | null;
-
-  /** Compute display summaries over the selected time window. */
+  /** Compute display summaries over the selected time window.
+   *  Uses allItems (getProdStats + extractor fluids) as the data source
+   *  so that Water, Crude Oil, and other extractor-only fluids appear. */
   const displaySummaries: FluidSummary[] = useMemo(() => {
-    if (!rawSnapshots) return [];
-
-    let snapshotBatch: ProdStatSnapshot[];
-
-    if (timeWindow > 0) {
-      const windowed = getWindowData(timeWindow) as unknown as ProdStatSnapshot[][];
-      snapshotBatch = windowed.length >= 2 ? averageProdStats(windowed) : rawSnapshots;
-    } else {
-      snapshotBatch = rawSnapshots;
+    if (timeWindow === 0 || !allItems.length) {
+      return getFluidSummaries(allItems as unknown as ProdStatSnapshot[], undefined, worldInv ?? undefined);
     }
 
-    if (snapshotBatch.length === 0) return [];
+    const snapshots = getWindowData(timeWindow) as unknown as ProdStatSnapshot[][];
+    if (snapshots.length < 2) {
+      return getFluidSummaries(allItems as unknown as ProdStatSnapshot[], undefined, worldInv ?? undefined);
+    }
 
-    return getFluidSummaries(snapshotBatch, fluidSet, worldInv ?? undefined);
-  }, [rawSnapshots, timeWindow, getWindowData, fluidSet, worldInv]);
+    const averaged = averageProdStats(snapshots);
+    return getFluidSummaries(averaged, undefined, worldInv ?? undefined);
+  }, [allItems, timeWindow, getWindowData, worldInv]);
 
   const periodLabel = TIME_WINDOWS.find((w) => w.value === timeWindow)?.label ?? 'Live';
 
@@ -429,39 +415,21 @@ export function FluidDashboard({ config, timeWindow }: Props) {
       }
     }
 
-    // Also check extractors for resource wells
-    if (extractors) {
-      for (const ex of extractors) {
-        for (const p of ex.production ?? []) {
-          if (p.ClassName === selectedFluid.className) {
-            producers.push({
-              building: ex.Name,
-              buildingClass: ex.ClassName,
-              recipe: ex.Recipe || 'Extraction',
-              currentRate: p.CurrentProd,
-              maxRate: p.MaxProd,
-              efficiency: p.ProdPercent,
-              isActive: ex.IsProducing,
-              shards: ex.PowerShards ?? 0,
-              sloops: ex.Somersloops ?? 0,
-            });
-          }
-        }
-      }
-    }
+    // Extractors are already included in `machines` via fetchMachines —
+    // no separate extractors loop needed (would double-count every extractor).
 
     return { producers, consumers };
-  }, [selectedFluid, machines, extractors]);
+  }, [selectedFluid, machines]);
 
   /** Raw material trace for the selected fluid. */
   const rawMaterials: RawMaterialLink[] = useMemo(() => {
     if (!selectedFluid || !recipes || !showRawTrace) return [];
-    return traceRawMaterials(selectedFluid.className, fluidSet, recipes as unknown as RawRecipe[], 3);
-  }, [selectedFluid, recipes, fluidSet, showRawTrace]);
+    return traceRawMaterials(selectedFluid.className, null, recipes, 3);
+  }, [selectedFluid, recipes, showRawTrace]);
 
   /* ── Early return states ───────────────────────────────── */
 
-  if (loading || fluidSetLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
         <svg className="animate-spin w-8 h-8" style={{ color: theme.accent }} fill="none" viewBox="0 0 24 24">
@@ -482,18 +450,6 @@ export function FluidDashboard({ config, timeWindow }: Props) {
         <button onClick={fetchData} className="mt-3 text-xs hover:underline" style={{ color: theme.accent }}>
           Retry
         </button>
-      </div>
-    );
-  }
-
-  if (!fluidSet || fluidSet.size === 0) {
-    return (
-      <div className="text-center py-16" style={{ color: theme.textSecondary }}>
-        <p className="text-lg font-medium">No fluid recipes found</p>
-        <p className="text-sm mt-1">
-          Make sure your factory has unlocked fluid-handling buildings
-          (Refineries, Blenders, or Packagers).
-        </p>
       </div>
     );
   }
@@ -854,15 +810,4 @@ function MetricBadge({
       <p className="text-sm font-bold font-mono" style={{ color }}>{value}</p>
     </div>
   );
-}
-
-/**
- * Minimal recipe interface for raw material tracing.
- * Mirrors the shape in src/lib/fluids.ts for use in the dashboard.
- */
-interface RawRecipe {
-  ClassName: string;
-  displayName?: string;
-  products?: { Name: string; ClassName: string; Amount: number }[];
-  ingredients?: { Name: string; ClassName: string; Amount: number }[];
 }

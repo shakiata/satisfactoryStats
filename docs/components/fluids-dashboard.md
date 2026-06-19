@@ -16,28 +16,30 @@ interface Props {
 
 ### Data Sources
 
-| Endpoint       | Type                | Purpose                                               |
-| -------------- | ------------------- | ----------------------------------------------------- |
-| `getProdStats` | `ProdStatItem[]`    | Per-item production/consumption rates (polled live)   |
-| `getRecipes`   | `RawRecipe[]`       | Recipe graph for fluid detection + raw material trace |
-| `getWorldInv`  | `WorldInvItem[]`    | Total in-world fluid amounts (pipes, buffers, tanks)  |
-| `getRefinery`  | `FactoryBuilding[]` | Per-refinery breakdown for detail panel               |
-| `getBlender`   | `FactoryBuilding[]` | Per-blender breakdown for detail panel                |
-| `getPackager`  | `FactoryBuilding[]` | Per-packager breakdown for detail panel               |
-| `getExtractor` | `Extractor[]`       | Per-extractor breakdown for detail panel              |
-| `getPipes`     | `unknown`           | Count only — infrastructure overview                  |
-| `getPump`      | `unknown`           | Count only — infrastructure overview                  |
+| Endpoint       | Type                | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getProdStats` | `ProdStatItem[]`    | Per-item production/consumption rates (polled live). **Note:** FRM does NOT include fluid items (Water, Crude Oil) in this endpoint — they only appear in `getExtractor`.                                                                                                                                                                                                                                                         |
+| `getRecipes`   | `RawRecipe[]`       | Recipe graph for raw material trace only                                                                                                                                                                                                                                                                                                                                                                                          |
+| `getWorldInv`  | `WorldInvItem[]`    | Total in-world fluid amounts (pipes, buffers, tanks)                                                                                                                                                                                                                                                                                                                                                                              |
+| `getRefinery`  | `FactoryBuilding[]` | Per-refinery breakdown for detail panel                                                                                                                                                                                                                                                                                                                                                                                           |
+| `getBlender`   | `FactoryBuilding[]` | Per-blender breakdown for detail panel                                                                                                                                                                                                                                                                                                                                                                                            |
+| `getPackager`  | `FactoryBuilding[]` | Per-packager breakdown for detail panel                                                                                                                                                                                                                                                                                                                                                                                           |
+| `getExtractor` | `Extractor[]`       | **Primary fluid data source.** Fluid production (Water, Crude Oil) is extracted from each extractor's `production[]` array, aggregated by ClassName, and merged into the main items array via the reusable `mergeExtractorFluids()` utility in `src/lib/fluids.ts`. Also used for per-extractor breakdown in the detail panel (extractors are cast to `FactoryBuilding` and included in the `machines` array by `fetchMachines`). |
+| `getPipes`     | `unknown`           | Count only — infrastructure overview                                                                                                                                                                                                                                                                                                                                                                                              |
+| `getPump`      | `unknown`           | Count only — infrastructure overview                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ### Fluid Detection Logic
 
-Uses `src/lib/fluids.ts` → `buildFluidSet()` which:
+**Data merge (`allItems`):** Because FRM reports fluid production (Water, Crude Oil) via `getExtractor` rather than `getProdStats`, the component synthesizes `ProdStatItem`-shaped entries from each extractor's `production[]` array. These are aggregated by ClassName (summing `CurrentProd`/`MaxProd`, averaging `ProdPercent`) and merged into the main items array before any detection or display logic runs. This merge happens in a `useMemo` _before_ the `useTimeBuffer` call so that extractor fluids also appear in historical time-window data.
 
-1. Fetches recipes from FRM API
-2. Builds a `Set<string>` of fluid ClassNames by checking:
-   - ClassName starts with `Desc_Liquid` or `Desc_Gas`
-   - ClassName matches known fluid patterns: `Desc_(Water|Fuel|Oil|Nitrogen|Acid|Alumina|Residue|Coolant)`
-   - Products and ingredients of known fluid recipes are also flagged
-3. The set is cached in a module-level variable so it's only fetched once
+**ClassName detection** uses `src/lib/fluids.ts` → `isFluidClassName()` which applies **synchronous ClassName pattern matching** directly to production stats — no API call or pre-built set required. Detection uses a four-tier approach:
+
+1. **Prefix check:** `Desc_Liquid*` → liquid, `Desc_Gas*` → gas
+2. **Embedded "Gas":** ClassName contains `Gas` (e.g., `Desc_NitrogenGas_C`), excluding known solid items (`GasTank`, `GasMask`, `GasNobelisk`)
+3. **Hardcoded exceptions:** Known base-game liquids that don't follow the prefix convention — `Desc_Water_C`, `Desc_AluminaSolution_C`, `Desc_SulfuricAcid_C`, `Desc_NitricAcid_C`, `Desc_HeavyOilResidue_C`, `Desc_DarkMatterResidue_C`, `Desc_IonizedFuel_C`, `Desc_RocketFuel_C`
+4. **Word-hint fallback:** ClassName (after `Desc_` prefix) contains `Oil`, `Residue`, `Acid`, `Solution`, or `Extract` — catches mod-added fluids
+
+`getFluidSummaries()` and `traceRawMaterials()` call `isFluidClassName()` directly on each item, so every `Desc_Liquid*` variant is detected regardless of whether it appears in the hardcoded list. `getFluidSet()` exists as a convenience for pre-seeding known base-game ClassNames but is no longer required for fluid detection.
 
 ### UI Sections
 
@@ -79,14 +81,14 @@ Uses `src/lib/fluids.ts` → `buildFluidSet()` which:
 
 ### States Handled
 
-| State             | Visual                                          |
-| ----------------- | ----------------------------------------------- |
-| Loading           | Spinning indicator + "Connecting..." message    |
-| Error             | Red error message + Retry button                |
-| No recipes        | "Unable to detect fluid recipes" + Retry        |
-| No fluids found   | "No fluids detected in production data" message |
-| Empty/ready       | Cards grid with all matching fluids             |
-| No machines found | "No machines found handling this fluid" message |
+| State             | Visual                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Loading           | Spinning indicator + "Connecting..." message                                                                                   |
+| Error             | Red error message + Retry button                                                                                               |
+| No recipes        | "Unable to detect fluid recipes" + Retry                                                                                       |
+| No fluids found   | "No fluids detected in production data" message + diagnostic panel showing API item count, fluid count, and first 8 ClassNames |
+| Empty/ready       | Cards grid with all matching fluids                                                                                            |
+| No machines found | "No machines found handling this fluid" message                                                                                |
 
 ### Sub-Components
 
