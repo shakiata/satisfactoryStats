@@ -92,9 +92,11 @@ function getNgrokInstallHint() {
 }
 
 /**
- * Checks whether the ngrok npm package's bundled binary exists and is
- * executable.  On Linux/macOS, attempts chmod +x if the file exists but
- * lacks execute permission (common after npm install on some systems).
+ * Checks whether the ngrok npm package's bundled binary exists and is a
+ * valid executable.  On Unix, verifies execute permission and attempts
+ * chmod +x if missing.  On all platforms, reads the first 4 bytes to
+ * confirm the file is a real binary (ELF / Mach-O / PE), not a text file
+ * left behind by a failed postinstall download.
  * Returns the resolved binary path on success, or null if unusable.
  */
 function ensureNgrokNpmBinary() {
@@ -118,6 +120,31 @@ function ensureNgrokNpmBinary() {
         }
       }
     }
+
+    // Verify the file is a real executable, not a text file (e.g. HTML
+    // error page from a failed postinstall download).  Read just the
+    // first 4 bytes and check for known binary magic numbers.
+    const fd = fs.openSync(binPath, "r");
+    const magic = Buffer.alloc(4);
+    fs.readSync(fd, magic, 0, 4, 0);
+    fs.closeSync(fd);
+
+    const isElf = magic[0] === 0x7f && magic[1] === 0x45 && magic[2] === 0x4c && magic[3] === 0x46;
+    const isMacho = (magic[0] === 0xcf && magic[1] === 0xfa) || (magic[0] === 0xfe && magic[1] === 0xed);
+    const isPE = magic[0] === 0x4d && magic[1] === 0x5a; // MZ
+    const looksLikeText = magic[0] === 0x3c || magic[0] === 0x7b; // '<' (HTML/XML) or '{' (JSON)
+
+    if (looksLikeText || (!isElf && !isMacho && !isPE)) {
+      console.error(
+        "ngrok npm binary at",
+        binPath,
+        "does not look like a valid executable (magic:",
+        magic.toString("hex"),
+        "). Skipping npm approach — the postinstall download may have failed. Try: npm rebuild ngrok",
+      );
+      return null;
+    }
+
     return binPath;
   } catch (_err) {
     return null;
@@ -141,9 +168,19 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     // Pre-flight: check npm binary before attempting require("ngrok")
     const npmBinOk = ensureNgrokNpmBinary();
 
-    // Try the ngrok npm package first, fall back to CLI
+    // Try the ngrok npm package first, fall back to CLI.
+    // The ngrok package's internal spawn() lacks an 'error' listener,
+    // so a corrupted binary causes an uncaught exception that escapes
+    // the promise chain.  We install a temporary safety-net handler
+    // that catches the leak and routes to the CLI fallback.
     let url;
     if (npmBinOk) {
+      let uncaughtFired = null;
+      const uncaughtHandler = (err) => {
+        uncaughtFired = err;
+      };
+      process.on("uncaughtException", uncaughtHandler);
+
       try {
         const ngrok = require("ngrok");
         const opts = {
@@ -154,10 +191,18 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
         url = await ngrok.connect(opts);
         ngrokUrl = url;
       } catch (npmErr) {
-        // npm connect failed — record but don't throw yet; try CLI fallback
         const npmMsg = npmErr.message || String(npmErr);
         console.error("ngrok npm package failed:", npmMsg);
         url = null;
+      } finally {
+        process.removeListener("uncaughtException", uncaughtHandler);
+        if (uncaughtFired) {
+          console.error(
+            "ngrok npm package threw uncaught exception:",
+            uncaughtFired.message || uncaughtFired,
+          );
+          url = null;
+        }
       }
     }
 
@@ -181,11 +226,7 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
       url = await new Promise((resolve, reject) => {
         const installHint = getNgrokInstallHint();
         const timeout = setTimeout(() => {
-          reject(
-            new Error(
-              `ngrok timed out after 15s. ${installHint}`,
-            ),
-          );
+          reject(new Error(`ngrok timed out after 15s. ${installHint}`));
         }, 15000);
 
         let output = "";
@@ -214,9 +255,10 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
 
         ngrokProcess.on("error", (err) => {
           clearTimeout(timeout);
-          const hint = err.code === "ENOENT"
-            ? `ngrok binary not found. ${installHint}`
-            : `ngrok failed to start: ${err.message}`;
+          const hint =
+            err.code === "ENOENT"
+              ? `ngrok binary not found. ${installHint}`
+              : `ngrok failed to start: ${err.message}`;
           reject(new Error(hint));
         });
 

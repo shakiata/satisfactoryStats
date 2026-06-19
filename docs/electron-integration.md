@@ -124,17 +124,19 @@ If the Share button produces an "ngrok binary not found" or "ENOENT" error:
 ### The npm package binary is missing or not executable
 
 The ngrok npm package bundles a platform-specific binary at
-`node_modules/ngrok/bin/ngrok` (or `.exe` on Windows).  The app now
-pre-flights this path before attempting a connection.  If the file exists
+`node_modules/ngrok/bin/ngrok` (or `.exe` on Windows). The app now
+pre-flights this path before attempting a connection. If the file exists
 but lacks execute permission (common on Linux/WSL after `npm install`),
 the app attempts `chmod +x` automatically.
 
 **Manual fix if auto-chmod fails:**
+
 ```bash
 chmod +x node_modules/ngrok/bin/ngrok
 ```
 
 **If the binary is missing entirely:**
+
 ```bash
 npm rebuild ngrok
 # or reinstall:
@@ -144,24 +146,25 @@ npm install ngrok@5.0.0-beta.2
 ### The system ngrok CLI is not installed (CLI fallback)
 
 When the npm package fails, the app falls back to spawning `ngrok` from
-your system PATH.  Install it via your platform's package manager:
+your system PATH. Install it via your platform's package manager:
 
-| Platform | Command |
-|----------|---------|
-| **Linux** (including WSL) | `sudo snap install ngrok` |
-| **macOS** | `brew install ngrok` |
-| **Windows** | `choco install ngrok` or `winget install ngrok` |
-| **Manual** | Download from https://ngrok.com/download |
+| Platform                  | Command                                         |
+| ------------------------- | ----------------------------------------------- |
+| **Linux** (including WSL) | `sudo snap install ngrok`                       |
+| **macOS**                 | `brew install ngrok`                            |
+| **Windows**               | `choco install ngrok` or `winget install ngrok` |
+| **Manual**                | Download from https://ngrok.com/download        |
 
 After installing, verify with `ngrok version`.
 
 ### Common error messages
 
-| Error | Meaning | Resolution |
-|-------|---------|------------|
-| `ngrok binary not found. Install ngrok: ...` | Neither the npm binary nor the system CLI is available | Install ngrok CLI (see table above) |
-| `ngrok timed out after 15s` | ngrok started but didn't report a URL in time | Check your network/firewall; try again |
-| `ngrok exited with code N` | ngrok process crashed | Check `~/.ngrok2/ngrok.log` for details |
+| Error                                        | Meaning                                                | Resolution                              |
+| -------------------------------------------- | ------------------------------------------------------ | --------------------------------------- |
+| `ngrok binary not found. Install ngrok: ...` | Neither the npm binary nor the system CLI is available | Install ngrok CLI (see table above)     |
+| `ngrok timed out after 15s`                  | ngrok started but didn't report a URL in time          | Check your network/firewall; try again  |
+| `ngrok exited with code N`                   | ngrok process crashed                                  | Check `~/.ngrok2/ngrok.log` for details |
+| `does not look like a valid executable`      | Binary is a corrupt text file (failed postinstall)     | `npm rebuild ngrok`                    |
 
 ## Preload Script (`electron/preload.js`)
 
