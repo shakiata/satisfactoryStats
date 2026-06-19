@@ -71,6 +71,59 @@ app.whenReady().then(createWindow);
 
 // ─── ngrok Tunnel IPC ───────────────────────────────────────────
 
+const os = require("os");
+
+/**
+ * Returns platform-specific ngrok install instructions for error messages.
+ * Covers Linux (snap/direct), macOS (brew), and Windows (choco/winget).
+ */
+function getNgrokInstallHint() {
+  const platform = os.platform();
+  if (platform === "linux") {
+    return "Install ngrok: sudo snap install ngrok  or download from https://ngrok.com/download";
+  }
+  if (platform === "darwin") {
+    return "Install ngrok: brew install ngrok";
+  }
+  if (platform === "win32") {
+    return "Install ngrok: choco install ngrok  or  winget install ngrok";
+  }
+  return "Download ngrok from https://ngrok.com/download";
+}
+
+/**
+ * Checks whether the ngrok npm package's bundled binary exists and is
+ * executable.  On Linux/macOS, attempts chmod +x if the file exists but
+ * lacks execute permission (common after npm install on some systems).
+ * Returns the resolved binary path on success, or null if unusable.
+ */
+function ensureNgrokNpmBinary() {
+  try {
+    const binDir = path.join(__dirname, "..", "node_modules", "ngrok", "bin");
+    const exeName = process.platform === "win32" ? "ngrok.exe" : "ngrok";
+    const binPath = path.join(binDir, exeName);
+
+    if (!fs.existsSync(binPath)) return null;
+
+    // On Unix, ensure the binary is executable (npm sometimes misses the +x bit)
+    if (process.platform !== "win32") {
+      try {
+        fs.accessSync(binPath, fs.constants.X_OK);
+      } catch (_permErr) {
+        // Exists but not executable — attempt chmod
+        try {
+          fs.chmodSync(binPath, 0o755);
+        } catch (_chmodErr) {
+          return null; // can't fix permissions
+        }
+      }
+    }
+    return binPath;
+  } catch (_err) {
+    return null;
+  }
+}
+
 /** Starts an ngrok tunnel to expose the FRM server. Tries npm package first, falls back to CLI. */
 ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
   try {
@@ -85,19 +138,31 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     const targetPort = port || "8080";
     const addr = `${targetHost}:${targetPort}`;
 
+    // Pre-flight: check npm binary before attempting require("ngrok")
+    const npmBinOk = ensureNgrokNpmBinary();
+
     // Try the ngrok npm package first, fall back to CLI
     let url;
-    try {
-      const ngrok = require("ngrok");
-      const opts = {
-        addr,
-        request_header_add: ["ngrok-skip-browser-warning:1"],
-      };
-      if (authtoken) opts.authtoken = authtoken;
-      url = await ngrok.connect(opts);
-      ngrokUrl = url;
-    } catch (npmErr) {
-      // npm package failed (maybe no binary), try CLI
+    if (npmBinOk) {
+      try {
+        const ngrok = require("ngrok");
+        const opts = {
+          addr,
+          request_header_add: ["ngrok-skip-browser-warning:1"],
+        };
+        if (authtoken) opts.authtoken = authtoken;
+        url = await ngrok.connect(opts);
+        ngrokUrl = url;
+      } catch (npmErr) {
+        // npm connect failed — record but don't throw yet; try CLI fallback
+        const npmMsg = npmErr.message || String(npmErr);
+        console.error("ngrok npm package failed:", npmMsg);
+        url = null;
+      }
+    }
+
+    // CLI fallback — spawn the system ngrok binary
+    if (!url) {
       const { spawn } = require("child_process");
       const args = [
         "http",
@@ -114,10 +179,11 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
 
       // Parse the URL from stdout
       url = await new Promise((resolve, reject) => {
+        const installHint = getNgrokInstallHint();
         const timeout = setTimeout(() => {
           reject(
             new Error(
-              "ngrok timed out — is ngrok installed? Run: brew install ngrok / choco install ngrok",
+              `ngrok timed out after 15s. ${installHint}`,
             ),
           );
         }, 15000);
@@ -148,7 +214,10 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
 
         ngrokProcess.on("error", (err) => {
           clearTimeout(timeout);
-          reject(new Error(`ngrok failed to start: ${err.message}`));
+          const hint = err.code === "ENOENT"
+            ? `ngrok binary not found. ${installHint}`
+            : `ngrok failed to start: ${err.message}`;
+          reject(new Error(hint));
         });
 
         ngrokProcess.on("exit", (code) => {
