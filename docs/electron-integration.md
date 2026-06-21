@@ -126,6 +126,21 @@ The ngrok npm package bundles a platform-specific binary at
 `node_modules/ngrok/bin/ngrok` (or `.exe` on Windows). The app tries
 the npm package directly and falls back to the system CLI on failure.
 
+### The binary is packed inside the asar (production builds)
+
+Electron-builder packs the entire app (including `node_modules`) into
+a read-only `app.asar` archive. Node's `child_process.spawn()` cannot
+execute binaries from inside an asar — it sees them as ENOENT.
+
+The build config solves this with `asarUnpack`:
+
+```json
+"asarUnpack": ["node_modules/ngrok/bin/**"]
+```
+
+This tells electron-builder to extract ngrok's binary out of the asar
+so the npm package's internal `spawn()` can find and execute it.
+
 **If the binary is missing or corrupt:**
 
 ```bash
@@ -155,6 +170,7 @@ The main process now logs tunnel lifecycle events to the Electron console (visib
 - `[tunnel] tunnel:start invoked { host, port }` — IPC handler received the request
 - `[tunnel] tunnel:start success, url: ...` — tunnel established
 - `[tunnel] tunnel:start failed: ...` — tunnel error
+- `[tunnel] ngrok npm package threw uncaught exception: ...` — ngrok npm package internal spawn error (binary missing or inside asar)
 - `[tunnel] ngrok npm disconnect/cleanup failed (non-fatal): ...` — cleanup warning
 
 The renderer also logs `[tunnel] startTunnel called` and `[tunnel] result` to the browser console.
@@ -166,6 +182,7 @@ The renderer also logs `[tunnel] startTunnel called` and `[tunnel] result` to th
 | `ngrok binary not found. Install ngrok: ...` | Neither the npm binary nor the system CLI is available | Install ngrok CLI (see table above)     |
 | `ngrok timed out after 15s`                  | ngrok started but didn't report a URL in time          | Check your network/firewall; try again  |
 | `ngrok exited with code N`                   | ngrok process crashed                                  | Check `~/.ngrok2/ngrok.log` for details |
+| `spawn ... ENOENT` (packaged builds)         | Binary is packed inside app.asar and can't be spawned  | Ensure `asarUnpack` is in build config  |
 
 ## Preload Script (`electron/preload.js`)
 

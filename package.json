@@ -1,6 +1,6 @@
 {
   "name": "satisfactory-stats",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -24,6 +24,9 @@
     "files": [
       "out/**/*",
       "electron/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/ngrok/bin/**"
     ],
     "extraMetadata": {
       "main": "electron/main.js"

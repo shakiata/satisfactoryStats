@@ -110,8 +110,19 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     const targetPort = port || "8080";
     const addr = `${targetHost}:${targetPort}`;
 
-    // Try the ngrok npm package first, fall back to CLI
+    // Try the ngrok npm package first, fall back to CLI.
+    // The ngrok npm package internally spawn()s its bundled binary
+    // without an 'error' listener, so a missing/corrupt binary (e.g.
+    // inside an asar archive) causes an uncaught exception that escapes
+    // the promise chain.  We install a temporary safety-net handler to
+    // catch the leak and route to the CLI fallback.
     let url;
+    let uncaughtFired = null;
+    const uncaughtHandler = (err) => {
+      uncaughtFired = err;
+    };
+    process.on("uncaughtException", uncaughtHandler);
+
     try {
       const ngrok = require("ngrok");
       const opts = {
@@ -127,6 +138,15 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
         npmErr.message || String(npmErr),
       );
       url = null;
+    } finally {
+      process.removeListener("uncaughtException", uncaughtHandler);
+      if (uncaughtFired) {
+        console.error(
+          "ngrok npm package threw uncaught exception:",
+          uncaughtFired.message || uncaughtFired,
+        );
+        url = null;
+      }
     }
 
     // CLI fallback — spawn the system ngrok binary
