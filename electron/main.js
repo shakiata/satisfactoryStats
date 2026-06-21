@@ -111,18 +111,21 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     const addr = `${targetHost}:${targetPort}`;
 
     // Try the ngrok npm package first, fall back to CLI.
-    // The ngrok npm package internally spawn()s its bundled binary
-    // without an 'error' listener, so a missing/corrupt binary (e.g.
-    // inside an asar archive) causes an uncaught exception that escapes
-    // the promise chain.  We install a temporary safety-net handler to
-    // catch the leak and route to the CLI fallback.
-    let url;
-    let uncaughtFired = null;
+    // The npm package internally spawn()s its bundled binary without
+    // an 'error' listener.  If the binary is missing, inside an asar,
+    // or corrupt, the internal spawn fails as an uncaught exception
+    // AND the connect() promise never settles — causing an infinite
+    // hang.  We install a temporary handler to prevent the crash, and
+    // race the connect against a timeout to unstick the hang.
     const uncaughtHandler = (err) => {
-      uncaughtFired = err;
+      console.error(
+        "ngrok npm package threw uncaught exception:",
+        err.message || err,
+      );
     };
     process.on("uncaughtException", uncaughtHandler);
 
+    let url;
     try {
       const ngrok = require("ngrok");
       const opts = {
@@ -130,7 +133,15 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
         request_header_add: ["ngrok-skip-browser-warning:1"],
       };
       if (authtoken) opts.authtoken = authtoken;
-      url = await ngrok.connect(opts);
+      url = await Promise.race([
+        ngrok.connect(opts),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("ngrok npm connect timed out after 8s")),
+            8000,
+          ),
+        ),
+      ]);
       ngrokUrl = url;
     } catch (npmErr) {
       console.error(
@@ -140,13 +151,6 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
       url = null;
     } finally {
       process.removeListener("uncaughtException", uncaughtHandler);
-      if (uncaughtFired) {
-        console.error(
-          "ngrok npm package threw uncaught exception:",
-          uncaughtFired.message || uncaughtFired,
-        );
-        url = null;
-      }
     }
 
     // CLI fallback — spawn the system ngrok binary
