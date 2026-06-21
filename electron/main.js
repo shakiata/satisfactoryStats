@@ -153,6 +153,7 @@ function ensureNgrokNpmBinary() {
 
 /** Starts an ngrok tunnel to expose the FRM server. Tries npm package first, falls back to CLI. */
 ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
+  console.log('[tunnel] tunnel:start invoked', { host, port, authtoken: authtoken ? '***' : undefined });
   try {
     // If there's already a tunnel, kill it first
     if (ngrokProcess) {
@@ -233,19 +234,10 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
         ngrokProcess.stdout.on("data", (data) => {
           output += data.toString();
           // ngrok v3 prints a line like: Forwarding  https://abc123.ngrok-free.app -> http://localhost:8080
-          const match = output.match(
-            /url=((https?:\/\/[^\s]+\.ngrok[^\s]*))|((https?:\/\/[^\s]+\.ngrok[^\s]*))/i,
-          );
-          if (!match) {
-            // Also try: Forwarding https://...
-            const fwd = output.match(/Forwarding\s+(https?:\/\/[^\s]+)/);
-            if (fwd) {
-              clearTimeout(timeout);
-              resolve(fwd[1].replace(/,$/, ""));
-            }
-          } else {
+          const fwd = output.match(/Forwarding\s+(https?:\/\/[^\s]+\.ngrok[^\s]+)/i);
+          if (fwd) {
             clearTimeout(timeout);
-            resolve(match[2] || match[3]);
+            resolve(fwd[1].replace(/,$/, ''));
           }
         });
 
@@ -272,8 +264,10 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
       ngrokUrl = url;
     }
 
+    console.log('[tunnel] tunnel:start success, url:', url);
     return { ok: true, url };
   } catch (err) {
+    console.error('[tunnel] tunnel:start failed:', err.message);
     ngrokUrl = null;
     ngrokProcess = null;
     return { ok: false, error: err.message };
@@ -288,8 +282,8 @@ ipcMain.handle("tunnel:stop", async () => {
       const ngrok = require("ngrok");
       await ngrok.disconnect();
       await ngrok.kill();
-    } catch (_) {
-      // npm package not available
+    } catch (e) {
+      console.warn('[tunnel] ngrok npm disconnect/cleanup failed (non-fatal):', e.message);
     }
 
     if (ngrokProcess) {

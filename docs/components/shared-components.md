@@ -34,17 +34,18 @@ interface ConnectionBarProps {
 
 ### ngrok Tunnel (Electron-only)
 
-- Detects `window.electronAPI` presence to conditionally show the "Share" button.
+- Detects `window.electronAPI` presence to determine Electron vs browser mode.
+- **Browser mode:** Share button appears disabled with tooltip "Run in Electron desktop app to share".
 - **Share:** Calls `electronAPI.tunnelStart(config.host, config.port)` — spawns ngrok, returns public URL.
 - **Active tunnel:** Shows URL with copy button, stop button, and pulsing green status dot.
-- **Error:** Displays tunnel error inline. Listens on `electronAPI.onTunnelError()`.
+- **Error:** Displays tunnel error inline at readable size (`text-xs`).
 - **Stop:** Calls `electronAPI.tunnelStop()` — kills the ngrok process.
 
 ### Edge Cases
 
 - Config changes reset connection state (`connected = false`, `error = null`).
 - Tunnel errors don't affect the main FRM connection.
-- Works in browser mode (no Electron) — tunnel UI is simply hidden.
+- In browser mode the Share button is visible but disabled — no silent hiding.
 
 ---
 

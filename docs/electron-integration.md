@@ -85,7 +85,6 @@ The Electron main process manages an ngrok tunnel process for sharing the FRM co
 | `tunnel:start`  | Renderer → Main | Start ngrok tunnel              |
 | `tunnel:stop`   | Renderer → Main | Stop ngrok tunnel               |
 | `tunnel:status` | Renderer → Main | Check tunnel state              |
-| `tunnel:error`  | Main → Renderer | Error events from ngrok process |
 
 ### tunnel:start
 
@@ -157,6 +156,17 @@ your system PATH. Install it via your platform's package manager:
 
 After installing, verify with `ngrok version`.
 
+### Debugging tunnel issues
+
+The main process now logs tunnel lifecycle events to the Electron console (visible via DevTools → Console or the terminal that launched Electron):
+
+- `[tunnel] tunnel:start invoked { host, port }` — IPC handler received the request
+- `[tunnel] tunnel:start success, url: ...` — tunnel established
+- `[tunnel] tunnel:start failed: ...` — tunnel error
+- `[tunnel] ngrok npm disconnect/cleanup failed (non-fatal): ...` — cleanup warning
+
+The renderer also logs `[tunnel] startTunnel called` and `[tunnel] result` to the browser console.
+
 ### Common error messages
 
 | Error                                        | Meaning                                                | Resolution                              |
@@ -176,8 +186,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("tunnel:start", host, port, authtoken),
   tunnelStop: () => ipcRenderer.invoke("tunnel:stop"),
   tunnelStatus: () => ipcRenderer.invoke("tunnel:status"),
-  onTunnelError: (callback) =>
-    ipcRenderer.on("tunnel:error", (_event, msg) => callback(msg)),
 });
 ```
 
@@ -200,13 +208,12 @@ declare global {
       ) => Promise<{ ok: boolean; url?: string; error?: string }>;
       tunnelStop: () => Promise<{ ok: boolean; error?: string }>;
       tunnelStatus: () => Promise<{ active: boolean; url: string | null }>;
-      onTunnelError: (callback: (msg: string) => void) => void;
     };
   }
 }
 ```
 
-The `?` on `electronAPI` indicates it's only available in Electron — in browser mode, this property is `undefined`. `ConnectionBar` checks for its presence before showing the tunnel UI.
+The `?` on `electronAPI` indicates it's only available in Electron — in browser mode, this property is `undefined`. `ConnectionBar` checks for its presence: the Share button appears disabled with a "Run in Electron desktop app to share" tooltip.
 
 ---
 

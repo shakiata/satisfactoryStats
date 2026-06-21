@@ -36,7 +36,6 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
       window.electronAPI.tunnelStatus().then((s) => {
         if (s.active && s.url) setTunnelUrl(s.url);
       });
-      window.electronAPI.onTunnelError((msg: string) => setTunnelError(msg));
     }
   }, [isElectron]);
 
@@ -44,7 +43,11 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
     if (!window.electronAPI) return;
     setTunnelLoading(true);
     setTunnelError(null);
-    const result = await window.electronAPI.tunnelStart(config.host || 'localhost', config.port || '8080', undefined);
+    const host = config.host || 'localhost';
+    const port = config.port || '8080';
+    console.log('[tunnel] startTunnel called', { host, port });
+    const result = await window.electronAPI.tunnelStart(host, port, undefined);
+    console.log('[tunnel] result', result);
     setTunnelLoading(false);
     if (result.ok && result.url) {
       setTunnelUrl(result.url);
@@ -154,8 +157,7 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
           </div>
         )}
 
-        {/* ─── ngrok Tunnel (Electron only) ─── */}
-        {isElectron && (
+        {/* ─── ngrok Tunnel ─── */}
           <div className="flex items-center gap-2 ml-auto">
             <div className="h-6 w-px" style={{ backgroundColor: theme.borderColor }} />
 
@@ -187,7 +189,8 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
             ) : (
               <button
                 onClick={startTunnel}
-                disabled={tunnelLoading}
+                disabled={tunnelLoading || !isElectron}
+                title={isElectron ? undefined : 'Run in Electron desktop app to share'}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
                 style={{ backgroundColor: theme.accent + '18', color: theme.accent, border: `1px solid ${theme.accent}30` }}
               >
@@ -205,10 +208,9 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
               </button>
             )}
             {tunnelError && (
-              <span className="text-[10px]" style={{ color: theme.danger }}>{tunnelError}</span>
+              <span className="text-xs" style={{ color: theme.danger }}>{tunnelError}</span>
             )}
           </div>
-        )}
       </div>
     </div>
   );
