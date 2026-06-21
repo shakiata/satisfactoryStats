@@ -80,11 +80,11 @@ The Electron main process manages an ngrok tunnel process for sharing the FRM co
 
 ### IPC Handlers
 
-| Channel         | Direction       | Purpose                         |
-| --------------- | --------------- | ------------------------------- |
-| `tunnel:start`  | Renderer → Main | Start ngrok tunnel              |
-| `tunnel:stop`   | Renderer → Main | Stop ngrok tunnel               |
-| `tunnel:status` | Renderer → Main | Check tunnel state              |
+| Channel         | Direction       | Purpose            |
+| --------------- | --------------- | ------------------ |
+| `tunnel:start`  | Renderer → Main | Start ngrok tunnel |
+| `tunnel:stop`   | Renderer → Main | Stop ngrok tunnel  |
+| `tunnel:status` | Renderer → Main | Check tunnel state |
 
 ### tunnel:start
 
@@ -174,7 +174,7 @@ The renderer also logs `[tunnel] startTunnel called` and `[tunnel] result` to th
 | `ngrok binary not found. Install ngrok: ...` | Neither the npm binary nor the system CLI is available | Install ngrok CLI (see table above)     |
 | `ngrok timed out after 15s`                  | ngrok started but didn't report a URL in time          | Check your network/firewall; try again  |
 | `ngrok exited with code N`                   | ngrok process crashed                                  | Check `~/.ngrok2/ngrok.log` for details |
-| `does not look like a valid executable`      | Binary is a corrupt text file (failed postinstall)     | `npm rebuild ngrok`                    |
+| `does not look like a valid executable`      | Binary is a corrupt text file (failed postinstall)     | `npm rebuild ngrok`                     |
 
 ## Preload Script (`electron/preload.js`)
 
