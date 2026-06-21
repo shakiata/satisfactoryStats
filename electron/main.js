@@ -122,7 +122,10 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
       url = await ngrok.connect(opts);
       ngrokUrl = url;
     } catch (npmErr) {
-      console.error("ngrok npm package failed:", npmErr.message || String(npmErr));
+      console.error(
+        "ngrok npm package failed:",
+        npmErr.message || String(npmErr),
+      );
       url = null;
     }
 
