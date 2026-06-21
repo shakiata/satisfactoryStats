@@ -91,72 +91,6 @@ function getNgrokInstallHint() {
   return "Download ngrok from https://ngrok.com/download";
 }
 
-/**
- * Checks whether the ngrok npm package's bundled binary exists and is a
- * valid executable.  On Unix, verifies execute permission and attempts
- * chmod +x if missing.  On all platforms, reads the first 4 bytes to
- * confirm the file is a real binary (ELF / Mach-O / PE), not a text file
- * left behind by a failed postinstall download.
- * Returns the resolved binary path on success, or null if unusable.
- */
-function ensureNgrokNpmBinary() {
-  try {
-    const binDir = path.join(__dirname, "..", "node_modules", "ngrok", "bin");
-    const exeName = process.platform === "win32" ? "ngrok.exe" : "ngrok";
-    const binPath = path.join(binDir, exeName);
-
-    if (!fs.existsSync(binPath)) return null;
-
-    // On Unix, ensure the binary is executable (npm sometimes misses the +x bit)
-    if (process.platform !== "win32") {
-      try {
-        fs.accessSync(binPath, fs.constants.X_OK);
-      } catch (_permErr) {
-        // Exists but not executable — attempt chmod
-        try {
-          fs.chmodSync(binPath, 0o755);
-        } catch (_chmodErr) {
-          return null; // can't fix permissions
-        }
-      }
-    }
-
-    // Verify the file is a real executable, not a text file (e.g. HTML
-    // error page from a failed postinstall download).  Read just the
-    // first 4 bytes and check for known binary magic numbers.
-    const fd = fs.openSync(binPath, "r");
-    const magic = Buffer.alloc(4);
-    fs.readSync(fd, magic, 0, 4, 0);
-    fs.closeSync(fd);
-
-    const isElf =
-      magic[0] === 0x7f &&
-      magic[1] === 0x45 &&
-      magic[2] === 0x4c &&
-      magic[3] === 0x46;
-    const isMacho =
-      (magic[0] === 0xcf && magic[1] === 0xfa) ||
-      (magic[0] === 0xfe && magic[1] === 0xed);
-    const isPE = magic[0] === 0x4d && magic[1] === 0x5a; // MZ
-    const looksLikeText = magic[0] === 0x3c || magic[0] === 0x7b; // '<' (HTML/XML) or '{' (JSON)
-
-    if (looksLikeText || (!isElf && !isMacho && !isPE)) {
-      console.error(
-        "ngrok npm binary at",
-        binPath,
-        "does not look like a valid executable (magic:",
-        magic.toString("hex"),
-        "). Skipping npm approach — the postinstall download may have failed. Try: npm rebuild ngrok",
-      );
-      return null;
-    }
-
-    return binPath;
-  } catch (_err) {
-    return null;
-  }
-}
-
 /** Starts an ngrok tunnel to expose the FRM server. Tries npm package first, falls back to CLI. */
 ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
   console.log("[tunnel] tunnel:start invoked", {
@@ -176,45 +110,20 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     const targetPort = port || "8080";
     const addr = `${targetHost}:${targetPort}`;
 
-    // Pre-flight: check npm binary before attempting require("ngrok")
-    const npmBinOk = ensureNgrokNpmBinary();
-
-    // Try the ngrok npm package first, fall back to CLI.
-    // The ngrok package's internal spawn() lacks an 'error' listener,
-    // so a corrupted binary causes an uncaught exception that escapes
-    // the promise chain.  We install a temporary safety-net handler
-    // that catches the leak and routes to the CLI fallback.
+    // Try the ngrok npm package first, fall back to CLI
     let url;
-    if (npmBinOk) {
-      let uncaughtFired = null;
-      const uncaughtHandler = (err) => {
-        uncaughtFired = err;
+    try {
+      const ngrok = require("ngrok");
+      const opts = {
+        addr,
+        request_header_add: ["ngrok-skip-browser-warning:1"],
       };
-      process.on("uncaughtException", uncaughtHandler);
-
-      try {
-        const ngrok = require("ngrok");
-        const opts = {
-          addr,
-          request_header_add: ["ngrok-skip-browser-warning:1"],
-        };
-        if (authtoken) opts.authtoken = authtoken;
-        url = await ngrok.connect(opts);
-        ngrokUrl = url;
-      } catch (npmErr) {
-        const npmMsg = npmErr.message || String(npmErr);
-        console.error("ngrok npm package failed:", npmMsg);
-        url = null;
-      } finally {
-        process.removeListener("uncaughtException", uncaughtHandler);
-        if (uncaughtFired) {
-          console.error(
-            "ngrok npm package threw uncaught exception:",
-            uncaughtFired.message || uncaughtFired,
-          );
-          url = null;
-        }
-      }
+      if (authtoken) opts.authtoken = authtoken;
+      url = await ngrok.connect(opts);
+      ngrokUrl = url;
+    } catch (npmErr) {
+      console.error("ngrok npm package failed:", npmErr.message || String(npmErr));
+      url = null;
     }
 
     // CLI fallback — spawn the system ngrok binary

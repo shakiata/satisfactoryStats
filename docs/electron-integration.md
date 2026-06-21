@@ -123,18 +123,10 @@ If the Share button produces an "ngrok binary not found" or "ENOENT" error:
 ### The npm package binary is missing or not executable
 
 The ngrok npm package bundles a platform-specific binary at
-`node_modules/ngrok/bin/ngrok` (or `.exe` on Windows). The app now
-pre-flights this path before attempting a connection. If the file exists
-but lacks execute permission (common on Linux/WSL after `npm install`),
-the app attempts `chmod +x` automatically.
+`node_modules/ngrok/bin/ngrok` (or `.exe` on Windows). The app tries
+the npm package directly and falls back to the system CLI on failure.
 
-**Manual fix if auto-chmod fails:**
-
-```bash
-chmod +x node_modules/ngrok/bin/ngrok
-```
-
-**If the binary is missing entirely:**
+**If the binary is missing or corrupt:**
 
 ```bash
 npm rebuild ngrok
@@ -174,7 +166,6 @@ The renderer also logs `[tunnel] startTunnel called` and `[tunnel] result` to th
 | `ngrok binary not found. Install ngrok: ...` | Neither the npm binary nor the system CLI is available | Install ngrok CLI (see table above)     |
 | `ngrok timed out after 15s`                  | ngrok started but didn't report a URL in time          | Check your network/firewall; try again  |
 | `ngrok exited with code N`                   | ngrok process crashed                                  | Check `~/.ngrok2/ngrok.log` for details |
-| `does not look like a valid executable`      | Binary is a corrupt text file (failed postinstall)     | `npm rebuild ngrok`                     |
 
 ## Preload Script (`electron/preload.js`)
 
