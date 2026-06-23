@@ -130,7 +130,10 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
       ngrokUrl = url;
     } catch (npmErr) {
       // npm package failed (maybe no binary), try CLI
-      console.error("ngrok npm package failed:", npmErr.message || String(npmErr));
+      console.error(
+        "ngrok npm package failed:",
+        npmErr.message || String(npmErr),
+      );
       url = null;
     }
 
