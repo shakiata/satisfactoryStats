@@ -117,7 +117,12 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     const targetPort = port || "8080";
     const addr = `${targetHost}:${targetPort}`;
 
-    // Try the ngrok npm package first, fall back to CLI
+    // Try the ngrok npm package first, fall back to CLI.
+    // The npm package internally spawn()s its bundled binary from
+    // __dirname, which points inside app.asar and fails with ENOENT.
+    // The package supports a binPath option designed for Electron prod
+    // builds — we redirect it to the asar-unpacked location on disk.
+    const isPackaged = app.isPackaged;
     let url;
     try {
       const ngrok = require("ngrok");
@@ -126,14 +131,21 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
         request_header_add: ["ngrok-skip-browser-warning:1"],
       };
       if (authtoken) opts.authtoken = authtoken;
+      if (isPackaged) {
+        const unpackedBinDir = path.join(
+          process.resourcesPath,
+          "app.asar.unpacked",
+          "node_modules",
+          "ngrok",
+          "bin",
+        );
+        opts.binPath = () => unpackedBinDir;
+      }
       url = await ngrok.connect(opts);
       ngrokUrl = url;
     } catch (npmErr) {
       // npm package failed (maybe no binary), try CLI
-      console.error(
-        "ngrok npm package failed:",
-        npmErr.message || String(npmErr),
-      );
+      console.error("ngrok npm package failed:", npmErr.message || String(npmErr));
       url = null;
     }
 
