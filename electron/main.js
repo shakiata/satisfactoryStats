@@ -91,7 +91,41 @@ function getNgrokInstallHint() {
   return "Download ngrok from https://ngrok.com/download";
 }
 
-/** Starts an ngrok tunnel to expose the FRM server. Tries npm package first, falls back to CLI. */
+/**
+ * Resolves the path to the ngrok binary, handling dev vs packaged modes.
+ * In dev: node_modules/ngrok/bin/ngrok (or .exe on Windows)
+ * In packaged: app.asar.unpacked/node_modules/ngrok/bin/ngrok (or .exe)
+ * Falls back to "ngrok" on PATH if neither is found.
+ */
+function resolveNgrokBinary() {
+  const platform = os.platform();
+  const binName = platform === "win32" ? "ngrok.exe" : "ngrok";
+
+  if (app.isPackaged) {
+    const unpackedPath = path.join(
+      process.resourcesPath,
+      "app.asar.unpacked",
+      "node_modules",
+      "ngrok",
+      "bin",
+      binName,
+    );
+    console.log("[tunnel] checking unpacked binary:", unpackedPath);
+    if (fs.existsSync(unpackedPath)) return unpackedPath;
+  }
+
+  // Dev mode: resolve from electron/main.js → ../node_modules/ngrok/bin/
+  const devBinDir = path.join(__dirname, "..", "node_modules", "ngrok", "bin");
+  const devPath = path.join(devBinDir, binName);
+  console.log("[tunnel] checking dev binary:", devPath);
+  if (fs.existsSync(devPath)) return devPath;
+
+  // Last resort: try system ngrok on PATH
+  console.log("[tunnel] no bundled binary, falling back to system ngrok");
+  return "ngrok";
+}
+
+/** Starts an ngrok tunnel to expose the FRM server. */
 ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
   console.log("[tunnel] tunnel:start invoked", {
     host,
@@ -99,14 +133,7 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     authtoken: authtoken ? "***" : undefined,
   });
   try {
-    // If there's already a tunnel, kill it first (both npm and CLI paths)
-    try {
-      const ngrok = require("ngrok");
-      await ngrok.disconnect();
-      await ngrok.kill();
-    } catch (_) {
-      // may not be connected — ignore
-    }
+    // Kill any existing tunnel process
     if (ngrokProcess) {
       ngrokProcess.kill("SIGTERM");
       ngrokProcess = null;
@@ -117,100 +144,69 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     const targetPort = port || "8080";
     const addr = `${targetHost}:${targetPort}`;
 
-    // Try the ngrok npm package first, fall back to CLI.
-    // The npm package internally spawn()s its bundled binary from
-    // __dirname, which points inside app.asar and fails with ENOENT.
-    // The package supports a binPath option designed for Electron prod
-    // builds — we redirect it to the asar-unpacked location on disk.
-    const isPackaged = app.isPackaged;
-    let url;
-    try {
-      const ngrok = require("ngrok");
-      const opts = {
-        addr,
-        request_header_add: ["ngrok-skip-browser-warning:1"],
-      };
-      if (authtoken) opts.authtoken = authtoken;
-      if (isPackaged) {
-        const unpackedBinDir = path.join(
-          process.resourcesPath,
-          "app.asar.unpacked",
-          "node_modules",
-          "ngrok",
-          "bin",
+    const ngrokBin = resolveNgrokBinary();
+    const { spawn } = require("child_process");
+    const args = [
+      "http",
+      addr,
+      "--log=stdout",
+      "--request-header-add",
+      "ngrok-skip-browser-warning:1",
+    ];
+    if (authtoken) args.push("--authtoken", authtoken);
+
+    console.log(
+      "[tunnel] spawning:",
+      ngrokBin,
+      args.filter((a) => a !== authtoken),
+    );
+    ngrokProcess = spawn(ngrokBin, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    // Parse the URL from stdout
+    const url = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("ngrok timed out after 15s"));
+      }, 15000);
+
+      let output = "";
+      ngrokProcess.stdout.on("data", (data) => {
+        output += data.toString();
+        // ngrok v3 prints: Forwarding  https://abc123.ngrok-free.app -> http://localhost:8080
+        const fwd = output.match(
+          /Forwarding\s+(https?:\/\/[^\s]+\.ngrok[^\s]+)/i,
         );
-        opts.binPath = () => unpackedBinDir;
-      }
-      url = await ngrok.connect(opts);
-      ngrokUrl = url;
-    } catch (npmErr) {
-      // npm package failed (maybe no binary), try CLI
-      console.error(
-        "ngrok npm package failed:",
-        npmErr.message || String(npmErr),
-      );
-      url = null;
-    }
-
-    // CLI fallback — spawn the system ngrok binary
-    if (!url) {
-      const { spawn } = require("child_process");
-      const args = [
-        "http",
-        addr,
-        "--log=stdout",
-        "--request-header-add",
-        "ngrok-skip-browser-warning:1",
-      ];
-      if (authtoken) args.push("--authtoken", authtoken);
-
-      ngrokProcess = spawn("ngrok", args, {
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-
-      // Parse the URL from stdout
-      url = await new Promise((resolve, reject) => {
-        const installHint = getNgrokInstallHint();
-        const timeout = setTimeout(() => {
-          reject(new Error(`ngrok timed out after 15s. ${installHint}`));
-        }, 15000);
-
-        let output = "";
-        ngrokProcess.stdout.on("data", (data) => {
-          output += data.toString();
-          // ngrok v3 prints a line like: Forwarding  https://abc123.ngrok-free.app -> http://localhost:8080
-          const fwd = output.match(
-            /Forwarding\s+(https?:\/\/[^\s]+\.ngrok[^\s]+)/i,
-          );
-          if (fwd) {
-            clearTimeout(timeout);
-            resolve(fwd[1].replace(/,$/, ""));
-          }
-        });
-
-        ngrokProcess.stderr.on("data", (data) => {
-          output += data.toString();
-        });
-
-        ngrokProcess.on("error", (err) => {
+        if (fwd) {
           clearTimeout(timeout);
-          const hint =
-            err.code === "ENOENT"
-              ? `ngrok binary not found. ${installHint}`
-              : `ngrok failed to start: ${err.message}`;
-          reject(new Error(hint));
-        });
-
-        ngrokProcess.on("exit", (code) => {
-          if (code !== 0 && code !== null) {
-            clearTimeout(timeout);
-            reject(new Error(`ngrok exited with code ${code}`));
-          }
-        });
+          resolve(fwd[1].replace(/,$/, ""));
+        }
       });
-      ngrokUrl = url;
-    }
 
+      ngrokProcess.stderr.on("data", (data) => {
+        output += data.toString();
+      });
+
+      ngrokProcess.on("error", (err) => {
+        clearTimeout(timeout);
+        reject(
+          new Error(
+            err.code === "ENOENT"
+              ? `ngrok binary not found. ${getNgrokInstallHint()}`
+              : `ngrok failed to start: ${err.message}`,
+          ),
+        );
+      });
+
+      ngrokProcess.on("exit", (code) => {
+        if (code !== 0 && code !== null) {
+          clearTimeout(timeout);
+          reject(new Error(`ngrok exited with code ${code}`));
+        }
+      });
+    });
+
+    ngrokUrl = url;
     console.log("[tunnel] tunnel:start success, url:", url);
     return { ok: true, url };
   } catch (err) {
@@ -224,18 +220,6 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
 /** Stops any active ngrok tunnel and cleans up the process. */
 ipcMain.handle("tunnel:stop", async () => {
   try {
-    // Try npm package disconnect first
-    try {
-      const ngrok = require("ngrok");
-      await ngrok.disconnect();
-      await ngrok.kill();
-    } catch (e) {
-      console.warn(
-        "[tunnel] ngrok npm disconnect/cleanup failed (non-fatal):",
-        e.message,
-      );
-    }
-
     if (ngrokProcess) {
       ngrokProcess.kill("SIGTERM");
       ngrokProcess = null;
@@ -260,11 +244,6 @@ app.on("window-all-closed", () => {
     ngrokProcess.kill("SIGTERM");
     ngrokProcess = null;
   }
-  try {
-    const ngrok = require("ngrok");
-    ngrok.disconnect().catch(() => {});
-    ngrok.kill().catch(() => {});
-  } catch (_) {}
 
   if (process.platform !== "darwin") {
     app.quit();
