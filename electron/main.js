@@ -92,40 +92,79 @@ function getNgrokInstallHint() {
 }
 
 /**
- * Resolves the path to the ngrok binary, handling dev vs packaged modes.
- * In dev: node_modules/ngrok/bin/ngrok (or .exe on Windows)
- * In packaged: app.asar.unpacked/node_modules/ngrok/bin/ngrok (or .exe)
- * Falls back to "ngrok" on PATH if neither is found.
+ * Checks whether the ngrok npm package's bundled binary exists and is a
+ * valid executable.  On Unix, verifies execute permission and attempts
+ * chmod +x if missing.  On all platforms, reads the first 4 bytes to
+ * confirm the file is a real binary (ELF / Mach-O / PE), not a text file
+ * left behind by a failed postinstall download.
+ * Returns the resolved binary path on success, or null if unusable.
  */
-function resolveNgrokBinary() {
-  const platform = os.platform();
-  const binName = platform === "win32" ? "ngrok.exe" : "ngrok";
+function ensureNgrokNpmBinary() {
+  try {
+    const platform = os.platform();
+    const binName = platform === "win32" ? "ngrok.exe" : "ngrok";
 
-  if (app.isPackaged) {
-    const unpackedPath = path.join(
-      process.resourcesPath,
-      "app.asar.unpacked",
-      "node_modules",
-      "ngrok",
-      "bin",
-      binName,
-    );
-    console.log("[tunnel] checking unpacked binary:", unpackedPath);
-    if (fs.existsSync(unpackedPath)) return unpackedPath;
+    // In packaged builds, use extraResources (resources/ngrok/)
+    // In dev, use node_modules/ngrok/bin/
+    let binPath;
+    if (app.isPackaged) {
+      binPath = path.join(process.resourcesPath, "ngrok", binName);
+    } else {
+      const binDir = path.join(__dirname, "..", "node_modules", "ngrok", "bin");
+      binPath = path.join(binDir, binName);
+    }
+
+    if (!fs.existsSync(binPath)) {
+      console.error("[tunnel] ngrok binary not found at:", binPath);
+      return null;
+    }
+
+    // On Unix, ensure the binary is executable
+    if (platform !== "win32") {
+      try {
+        fs.accessSync(binPath, fs.constants.X_OK);
+      } catch (_permErr) {
+        try {
+          fs.chmodSync(binPath, 0o755);
+        } catch (_chmodErr) {
+          return null;
+        }
+      }
+    }
+
+    // Verify it's a real executable, not a text error page
+    const fd = fs.openSync(binPath, "r");
+    const magic = Buffer.alloc(4);
+    fs.readSync(fd, magic, 0, 4, 0);
+    fs.closeSync(fd);
+
+    const isElf =
+      magic[0] === 0x7f &&
+      magic[1] === 0x45 &&
+      magic[2] === 0x4c &&
+      magic[3] === 0x46;
+    const isMacho =
+      (magic[0] === 0xcf && magic[1] === 0xfa) ||
+      (magic[0] === 0xfe && magic[1] === 0xed);
+    const isPE = magic[0] === 0x4d && magic[1] === 0x5a;
+    const looksLikeText = magic[0] === 0x3c || magic[0] === 0x7b;
+
+    if (looksLikeText || (!isElf && !isMacho && !isPE)) {
+      console.error(
+        "[tunnel] ngrok binary does not look like a valid executable (magic:",
+        magic.toString("hex"),
+        ")",
+      );
+      return null;
+    }
+
+    return binPath;
+  } catch (_err) {
+    return null;
   }
-
-  // Dev mode: resolve from electron/main.js → ../node_modules/ngrok/bin/
-  const devBinDir = path.join(__dirname, "..", "node_modules", "ngrok", "bin");
-  const devPath = path.join(devBinDir, binName);
-  console.log("[tunnel] checking dev binary:", devPath);
-  if (fs.existsSync(devPath)) return devPath;
-
-  // Last resort: try system ngrok on PATH
-  console.log("[tunnel] no bundled binary, falling back to system ngrok");
-  return "ngrok";
 }
 
-/** Starts an ngrok tunnel to expose the FRM server. */
+/** Starts an ngrok tunnel to expose the FRM server. Tries npm package first, falls back to CLI. */
 ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
   console.log("[tunnel] tunnel:start invoked", {
     host,
@@ -133,9 +172,29 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     authtoken: authtoken ? "***" : undefined,
   });
   try {
-    // Kill any existing tunnel process
+    // Kill any existing tunnel process (both npm and CLI paths)
+    try {
+      const ngrok = require("ngrok");
+      await ngrok.disconnect();
+      await ngrok.kill();
+    } catch (_) {
+      // may not be connected — ignore
+    }
     if (ngrokProcess) {
-      ngrokProcess.kill("SIGTERM");
+      const platform = os.platform();
+      if (platform === "win32") {
+        try {
+          ngrokProcess.kill("SIGTERM");
+        } catch (_) {
+          /* Windows */
+        }
+        require("child_process").exec(
+          `taskkill /pid ${ngrokProcess.pid} /f /t`,
+          () => {},
+        );
+      } else {
+        ngrokProcess.kill("SIGTERM");
+      }
       ngrokProcess = null;
       ngrokUrl = null;
     }
@@ -144,69 +203,109 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
     const targetPort = port || "8080";
     const addr = `${targetHost}:${targetPort}`;
 
-    const ngrokBin = resolveNgrokBinary();
-    const { spawn } = require("child_process");
-    const args = [
-      "http",
-      addr,
-      "--log=stdout",
-      "--request-header-add",
-      "ngrok-skip-browser-warning:1",
-    ];
-    if (authtoken) args.push("--authtoken", authtoken);
+    // Pre-flight: check npm binary before attempting require("ngrok")
+    const npmBinOk = ensureNgrokNpmBinary();
 
-    console.log(
-      "[tunnel] spawning:",
-      ngrokBin,
-      args.filter((a) => a !== authtoken),
-    );
-    ngrokProcess = spawn(ngrokBin, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    // Try the ngrok npm package first, fall back to CLI.
+    // The ngrok package's internal spawn() lacks an 'error' listener,
+    // so a corrupted binary causes an uncaught exception that escapes
+    // the promise chain.  We install a temporary safety-net handler.
+    let url;
+    if (npmBinOk) {
+      let uncaughtFired = null;
+      const uncaughtHandler = (err) => {
+        uncaughtFired = err;
+      };
+      process.on("uncaughtException", uncaughtHandler);
 
-    // Parse the URL from stdout
-    const url = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("ngrok timed out after 15s"));
-      }, 15000);
-
-      let output = "";
-      ngrokProcess.stdout.on("data", (data) => {
-        output += data.toString();
-        // ngrok v3 prints: Forwarding  https://abc123.ngrok-free.app -> http://localhost:8080
-        const fwd = output.match(
-          /Forwarding\s+(https?:\/\/[^\s]+\.ngrok[^\s]+)/i,
-        );
-        if (fwd) {
-          clearTimeout(timeout);
-          resolve(fwd[1].replace(/,$/, ""));
+      try {
+        const ngrok = require("ngrok");
+        const opts = {
+          addr,
+          request_header_add: ["ngrok-skip-browser-warning:1"],
+        };
+        if (authtoken) opts.authtoken = authtoken;
+        if (app.isPackaged) {
+          opts.binPath = () => path.join(process.resourcesPath, "ngrok");
         }
+        url = await ngrok.connect(opts);
+        ngrokUrl = url;
+      } catch (npmErr) {
+        console.error(
+          "ngrok npm package failed:",
+          npmErr.message || String(npmErr),
+        );
+        url = null;
+      } finally {
+        process.removeListener("uncaughtException", uncaughtHandler);
+        if (uncaughtFired) {
+          console.error(
+            "ngrok npm package threw uncaught exception:",
+            uncaughtFired.message || uncaughtFired,
+          );
+          url = null;
+        }
+      }
+    }
+
+    // CLI fallback — spawn the system ngrok binary
+    if (!url) {
+      const { spawn } = require("child_process");
+      const args = [
+        "http",
+        addr,
+        "--log=stdout",
+        "--request-header-add",
+        "ngrok-skip-browser-warning:1",
+      ];
+      if (authtoken) args.push("--authtoken", authtoken);
+
+      ngrokProcess = spawn("ngrok", args, {
+        stdio: ["ignore", "pipe", "pipe"],
       });
 
-      ngrokProcess.stderr.on("data", (data) => {
-        output += data.toString();
-      });
+      // Parse the URL from stdout
+      url = await new Promise((resolve, reject) => {
+        const installHint = getNgrokInstallHint();
+        const timeout = setTimeout(() => {
+          reject(new Error(`ngrok timed out after 15s. ${installHint}`));
+        }, 15000);
 
-      ngrokProcess.on("error", (err) => {
-        clearTimeout(timeout);
-        reject(
-          new Error(
+        let output = "";
+        ngrokProcess.stdout.on("data", (data) => {
+          output += data.toString();
+          const fwd = output.match(
+            /Forwarding\s+(https?:\/\/[^\s]+\.ngrok[^\s]+)/i,
+          );
+          if (fwd) {
+            clearTimeout(timeout);
+            resolve(fwd[1].replace(/,$/, ""));
+          }
+        });
+
+        ngrokProcess.stderr.on("data", (data) => {
+          output += data.toString();
+        });
+
+        ngrokProcess.on("error", (err) => {
+          clearTimeout(timeout);
+          const hint =
             err.code === "ENOENT"
-              ? `ngrok binary not found. ${getNgrokInstallHint()}`
-              : `ngrok failed to start: ${err.message}`,
-          ),
-        );
-      });
+              ? `ngrok binary not found. ${installHint}`
+              : `ngrok failed to start: ${err.message}`;
+          reject(new Error(hint));
+        });
 
-      ngrokProcess.on("exit", (code) => {
-        if (code !== 0 && code !== null) {
-          clearTimeout(timeout);
-          reject(new Error(`ngrok exited with code ${code}`));
-        }
+        ngrokProcess.on("exit", (code) => {
+          if (code !== 0 && code !== null) {
+            clearTimeout(timeout);
+            reject(new Error(`ngrok exited with code ${code}`));
+          }
+        });
       });
-    });
+      ngrokUrl = url;
+    }
 
-    ngrokUrl = url;
     console.log("[tunnel] tunnel:start success, url:", url);
     return { ok: true, url };
   } catch (err) {
@@ -220,8 +319,29 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
 /** Stops any active ngrok tunnel and cleans up the process. */
 ipcMain.handle("tunnel:stop", async () => {
   try {
+    try {
+      const ngrok = require("ngrok");
+      await ngrok.disconnect();
+      await ngrok.kill();
+    } catch (_) {
+      /* npm package not available */
+    }
+
     if (ngrokProcess) {
-      ngrokProcess.kill("SIGTERM");
+      const platform = os.platform();
+      if (platform === "win32") {
+        try {
+          ngrokProcess.kill("SIGTERM");
+        } catch (_) {
+          /* Windows */
+        }
+        require("child_process").exec(
+          `taskkill /pid ${ngrokProcess.pid} /f /t`,
+          () => {},
+        );
+      } else {
+        ngrokProcess.kill("SIGTERM");
+      }
       ngrokProcess = null;
     }
     ngrokUrl = null;
@@ -241,9 +361,27 @@ ipcMain.handle("tunnel:status", async () => {
 app.on("window-all-closed", () => {
   // Clean up ngrok on exit
   if (ngrokProcess) {
-    ngrokProcess.kill("SIGTERM");
+    const platform = os.platform();
+    if (platform === "win32") {
+      try {
+        ngrokProcess.kill("SIGTERM");
+      } catch (_) {
+        /* Windows */
+      }
+      require("child_process").exec(
+        `taskkill /pid ${ngrokProcess.pid} /f /t`,
+        () => {},
+      );
+    } else {
+      ngrokProcess.kill("SIGTERM");
+    }
     ngrokProcess = null;
   }
+  try {
+    const ngrok = require("ngrok");
+    ngrok.disconnect().catch(() => {});
+    ngrok.kill().catch(() => {});
+  } catch (_) {}
 
   if (process.platform !== "darwin") {
     app.quit();

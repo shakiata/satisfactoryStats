@@ -25,8 +25,14 @@
       "out/**/*",
       "electron/**/*"
     ],
-    "asarUnpack": [
-      "node_modules/ngrok/bin/**"
+    "extraResources": [
+      {
+        "from": "node_modules/ngrok/bin",
+        "to": "ngrok",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "extraMetadata": {
       "main": "electron/main.js"
