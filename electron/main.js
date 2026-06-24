@@ -302,7 +302,12 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
             // Capture stderr for the real error (auth failure, bind error, etc.)
             const errText = output
               .split(/\n/)
-              .filter((l) => l.includes("lvl=eror") || l.includes("lvl=crit") || l.includes("ERR_NGROK"))
+              .filter(
+                (l) =>
+                  l.includes("lvl=eror") ||
+                  l.includes("lvl=crit") ||
+                  l.includes("ERR_NGROK"),
+              )
               .slice(-3)
               .join("\n");
             const detail = errText ? `:\n${errText}` : "";
