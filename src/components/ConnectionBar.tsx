@@ -46,7 +46,7 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
     const host = config.host || 'localhost';
     const port = config.port || '8080';
     console.log('[tunnel] startTunnel called', { host, port });
-    const result = await window.electronAPI.tunnelStart(host, port, undefined);
+    const result = await window.electronAPI.tunnelStart(host, port, config.password || undefined);
     console.log('[tunnel] result', result);
     setTunnelLoading(false);
     if (result.ok && result.url) {

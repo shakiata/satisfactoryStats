@@ -299,7 +299,14 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
         ngrokProcess.on("exit", (code) => {
           if (code !== 0 && code !== null) {
             clearTimeout(timeout);
-            reject(new Error(`ngrok exited with code ${code}`));
+            // Capture stderr for the real error (auth failure, bind error, etc.)
+            const errText = output
+              .split(/\n/)
+              .filter((l) => l.includes("lvl=eror") || l.includes("lvl=crit") || l.includes("ERR_NGROK"))
+              .slice(-3)
+              .join("\n");
+            const detail = errText ? `:\n${errText}` : "";
+            reject(new Error(`ngrok exited with code ${code}${detail}`));
           }
         });
       });
