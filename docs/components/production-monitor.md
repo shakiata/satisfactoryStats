@@ -98,7 +98,10 @@ When a card is clicked, a detail panel appears above the grid showing:
 **Machine Breakdown Tables:**
 
 - Two side-by-side tables: **Producing Machines** and **Consuming Machines**
-- Each row shows: building name, recipe name, current/max rate, efficiency %, overclock indicators
+- Each row shows: building name, recipe name, current/max rate, power draw, clock speed, efficiency %, location coordinates (x, y, z), overclock indicators
+- Power shown in MW with 3 decimal places via `formatNumber()`
+- Clock speed shown as percentage (e.g. `100.0%`) directly from `ManuSpeed`
+- Location formatted as compact `x, y, z` with integer coordinates
 - Power shards shown as `◆`, somersloops as `◇`
 - Requires `getFactory` endpoint; gracefully shows "Loading machine breakdown…" if not yet available
 

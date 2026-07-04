@@ -27,7 +27,6 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
   // ─── ngrok tunnel state (Electron only) ───
   const [tunnelUrl, setTunnelUrl] = useState<string | null>(null);
   const [tunnelLoading, setTunnelLoading] = useState(false);
-  const [tunnelError, setTunnelError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Check for existing tunnel on mount
@@ -42,7 +41,6 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
   const startTunnel = useCallback(async () => {
     if (!window.electronAPI) return;
     setTunnelLoading(true);
-    setTunnelError(null);
     const host = config.host || 'localhost';
     const port = config.port || '8080';
     // Capture password at call-time so the tunnel always uses the latest value.
@@ -54,8 +52,6 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
     setTunnelLoading(false);
     if (result.ok && result.url) {
       setTunnelUrl(result.url);
-    } else {
-      setTunnelError(result.error || 'Failed to start tunnel');
     }
   }, [config.host, config.port, config.password]);
 
@@ -209,9 +205,6 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
                   <>🌐 Share</>
                 )}
               </button>
-            )}
-            {tunnelError && (
-              <span className="text-xs" style={{ color: theme.danger }}>{tunnelError}</span>
             )}
           </div>
       </div>
