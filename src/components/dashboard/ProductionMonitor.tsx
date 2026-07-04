@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { FRMConfig, ProdStatItem, AppSettings, FactoryBuilding } from '@/lib/types';
+import { FRMConfig, ProdStatItem, AppSettings, FactoryBuilding, LocationData } from '@/lib/types';
 import { fetchEndpoint } from '@/lib/api';
 import { useTheme } from '@/lib/useTheme';
 import { useTimeBuffer, averageProdStats, extractItemTimeSeries, type ProdStatSnapshot, type ProdTimePoint } from '@/lib/useTimeBuffer';
@@ -282,7 +282,8 @@ function ProdConsChart({
  * Detail panel rendered below the item grid when a user clicks a card.
  * Displays: a prod vs cons time-series chart, max capacity metrics,
  * efficiency percentage, and a machine breakdown table listing every
- * building that produces or consumes this item.
+ * building that produces or consumes this item with power draw and
+ * location coordinates.
  */
 function ItemDetailPanel({
   item,
@@ -301,8 +302,8 @@ function ItemDetailPanel({
 
   // ── Machine breakdown ───────────────────────────────────────
   // Find all factory buildings that produce this item or consume it as an ingredient.
-  const producers: { building: string; recipe: string; current: number; max: number; eff: number; shards: number; sloops: number }[] = [];
-  const consumers: { building: string; recipe: string; current: number; max: number; eff: number; shards: number; sloops: number }[] = [];
+  const producers: { building: string; recipe: string; current: number; max: number; eff: number; shards: number; sloops: number; power: number; clock: number; location: LocationData }[] = [];
+  const consumers: { building: string; recipe: string; current: number; max: number; eff: number; shards: number; sloops: number; power: number; clock: number; location: LocationData }[] = [];
 
   if (factories) {
     for (const fb of factories) {
@@ -317,6 +318,9 @@ function ItemDetailPanel({
             eff: p.ProdPercent,
             shards: fb.PowerShards,
             sloops: fb.Somersloops,
+            power: fb.PowerInfo?.PowerConsumed ?? 0,
+            clock: fb.ManuSpeed,
+            location: fb.location,
           });
         }
       }
@@ -331,6 +335,9 @@ function ItemDetailPanel({
             eff: ing.ConsPercent,
             shards: fb.PowerShards,
             sloops: fb.Somersloops,
+            power: fb.PowerInfo?.PowerConsumed ?? 0,
+            clock: fb.ManuSpeed,
+            location: fb.location,
           });
         }
       }
@@ -402,7 +409,10 @@ function ItemDetailPanel({
                       <th className="text-left py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Building</th>
                       <th className="text-left py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Recipe</th>
                       <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Rate</th>
+                      <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Power</th>
+                      <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Clock</th>
                       <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Eff</th>
+                      <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Location</th>
                       <th className="text-center py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>⏣</th>
                     </tr>
                   </thead>
@@ -412,7 +422,10 @@ function ItemDetailPanel({
                         <td className="py-1.5 px-2" style={{ color: theme.textPrimary }}>{p.building}</td>
                         <td className="py-1.5 px-2 font-mono opacity-70" style={{ color: theme.textSecondary }}>{p.recipe}</td>
                         <td className="py-1.5 px-2 text-right font-mono" style={{ color: theme.success }}>{formatNumber(p.current)}/{formatNumber(p.max)}</td>
+                        <td className="py-1.5 px-2 text-right font-mono" style={{ color: theme.textSecondary }}>{formatNumber(p.power, { decimals: 3, unit: 'MW', compact: false })}</td>
+                        <td className="py-1.5 px-2 text-right font-mono" style={{ color: theme.textSecondary }}>{p.clock.toFixed(3)}%</td>
                         <td className="py-1.5 px-2 text-right font-mono" style={{ color: p.eff >= 90 ? theme.success : p.eff >= 50 ? theme.accent : theme.danger }}>{p.eff.toFixed(0)}%</td>
+                        <td className="py-1.5 px-2 text-right font-mono" style={{ color: theme.textSecondary }}>{p.location.x.toFixed(0)}, {p.location.y.toFixed(0)}, {p.location.z.toFixed(0)}</td>
                         <td className="py-1.5 px-2 text-center" style={{ color: theme.textSecondary }}>
                           {p.shards > 0 && <span title={`${p.shards} power shards`}>{'◆'.repeat(Math.min(p.shards, 3))}</span>}
                           {p.sloops > 0 && <span title={`${p.sloops} somersloops`}>{'◇'.repeat(Math.min(p.sloops, 3))}</span>}
@@ -438,7 +451,10 @@ function ItemDetailPanel({
                       <th className="text-left py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Building</th>
                       <th className="text-left py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Recipe</th>
                       <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Rate</th>
+                      <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Power</th>
+                      <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Clock</th>
                       <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Eff</th>
+                      <th className="text-right py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>Location</th>
                       <th className="text-center py-1.5 px-2 font-medium" style={{ color: theme.textSecondary }}>⏣</th>
                     </tr>
                   </thead>
@@ -448,7 +464,10 @@ function ItemDetailPanel({
                         <td className="py-1.5 px-2" style={{ color: theme.textPrimary }}>{c.building}</td>
                         <td className="py-1.5 px-2 font-mono opacity-70" style={{ color: theme.textSecondary }}>{c.recipe}</td>
                         <td className="py-1.5 px-2 text-right font-mono" style={{ color: theme.danger }}>{formatNumber(c.current)}/{formatNumber(c.max)}</td>
+                        <td className="py-1.5 px-2 text-right font-mono" style={{ color: theme.textSecondary }}>{formatNumber(c.power, { decimals: 3, unit: 'MW', compact: false })}</td>
+                        <td className="py-1.5 px-2 text-right font-mono" style={{ color: theme.textSecondary }}>{c.clock.toFixed(3)}%</td>
                         <td className="py-1.5 px-2 text-right font-mono" style={{ color: c.eff >= 90 ? theme.success : c.eff >= 50 ? theme.accent : theme.danger }}>{c.eff.toFixed(0)}%</td>
+                        <td className="py-1.5 px-2 text-right font-mono" style={{ color: theme.textSecondary }}>{c.location.x.toFixed(0)}, {c.location.y.toFixed(0)}, {c.location.z.toFixed(0)}</td>
                         <td className="py-1.5 px-2 text-center" style={{ color: theme.textSecondary }}>
                           {c.shards > 0 && <span title={`${c.shards} power shards`}>{'◆'.repeat(Math.min(c.shards, 3))}</span>}
                           {c.sloops > 0 && <span title={`${c.sloops} somersloops`}>{'◇'.repeat(Math.min(c.sloops, 3))}</span>}

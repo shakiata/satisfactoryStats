@@ -246,6 +246,19 @@ ipcMain.handle("tunnel:start", async (_event, host, port, authtoken) => {
           url = null;
         }
       }
+
+      // If the npm path failed, make sure any partially-started tunnel
+      // is torn down before we try the CLI fallback.  The ngrok binary
+      // may have started before connect() threw, leaving the port bound.
+      if (!url) {
+        try {
+          const ngrok = require("ngrok");
+          await ngrok.disconnect();
+          await ngrok.kill();
+        } catch (_) {
+          /* best-effort cleanup */
+        }
+      }
     }
 
     // CLI fallback — spawn the system ngrok binary
