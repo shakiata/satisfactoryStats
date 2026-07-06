@@ -27,7 +27,6 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
   // ─── ngrok tunnel state (Electron only) ───
   const [tunnelUrl, setTunnelUrl] = useState<string | null>(null);
   const [tunnelLoading, setTunnelLoading] = useState(false);
-  const [tunnelError, setTunnelError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Check for existing tunnel on mount
@@ -42,19 +41,19 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
   const startTunnel = useCallback(async () => {
     if (!window.electronAPI) return;
     setTunnelLoading(true);
-    setTunnelError(null);
     const host = config.host || 'localhost';
     const port = config.port || '8080';
-    console.log('[tunnel] startTunnel called', { host, port });
-    const result = await window.electronAPI.tunnelStart(host, port, config.password || undefined);
+    // Capture password at call-time so the tunnel always uses the latest value.
+    // (useCallback deps include config.password to avoid a stale closure.)
+    const password = config.password || undefined;
+    console.log('[tunnel] startTunnel called', { host, port, hasPassword: !!password });
+    const result = await window.electronAPI.tunnelStart(host, port, password);
     console.log('[tunnel] result', result);
     setTunnelLoading(false);
     if (result.ok && result.url) {
       setTunnelUrl(result.url);
-    } else {
-      setTunnelError(result.error || 'Failed to start tunnel');
     }
-  }, [config.host, config.port]);
+  }, [config.host, config.port, config.password]);
 
   const stopTunnel = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -206,9 +205,6 @@ export function ConnectionBar({ config, onConfigChange, onConnect, connected, co
                   <>🌐 Share</>
                 )}
               </button>
-            )}
-            {tunnelError && (
-              <span className="text-xs" style={{ color: theme.danger }}>{tunnelError}</span>
             )}
           </div>
       </div>

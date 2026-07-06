@@ -38,7 +38,6 @@ interface ConnectionBarProps {
 - **Browser mode:** Share button appears disabled with tooltip "Run in Electron desktop app to share".
 - **Share:** Calls `electronAPI.tunnelStart(config.host, config.port)` — spawns ngrok, returns public URL.
 - **Active tunnel:** Shows URL with copy button, stop button, and pulsing green status dot.
-- **Error:** Displays tunnel error inline at readable size (`text-xs`).
 - **Stop:** Calls `electronAPI.tunnelStop()` — kills the ngrok process.
 
 ### Edge Cases

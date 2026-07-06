@@ -15,6 +15,7 @@ Hub and index for all project documentation. Organized by conceptual layer so bo
 | [hooks.md](./hooks.md)                                                   | Custom React hooks — `useConfig`, `useAppSettings`, `useTheme`, `useTimeBuffer`                      |
 | [theme-and-styling.md](./theme-and-styling.md)                           | CSS design tokens, Tailwind palette, ThemeProvider context, color picker flow                        |
 | [electron-integration.md](./electron-integration.md)                     | Electron main process, preload bridge, ngrok IPC, type declarations                                  |
+| [diagrams/](./diagrams/)                                                 | Mermaid diagrams — architecture overview, data flow, component hierarchy, Electron, state management |
 | [testing.md](./testing.md)                                               | Testing strategy, Vitest config, test file locations, run instructions                               |
 | [components/overview.md](./components/overview.md)                       | Shared patterns across all UI components, tab routing, conventions                                   |
 | [components/shared-components.md](./components/shared-components.md)     | `ConnectionBar`, `EndpointList`, `TimeWindowSelector`                                                |
