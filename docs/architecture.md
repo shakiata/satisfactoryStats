@@ -76,6 +76,15 @@ The Next.js config sets `output: "export"` and `assetPrefix: "./"` so the static
 - **Linux:** AppImage
 - **macOS:** DMG
 
+### Automated Releases
+
+A GitHub Actions workflow (`.github/workflows/release.yml`) triggers on pushes to `main` when `package.json` changes. It compares the new `major.minor` against the latest release tag:
+
+- **Minor/major bump** → Linux and Windows builds run on GitHub-hosted runners → new GitHub Release created with `.AppImage` and `.exe` attached
+- **Patch bump** → no release (workflow still runs but skips the build/release jobs)
+
+This means contributors only need to bump the version and push — GitHub handles the rest.
+
 ---
 
 ## Data Flow

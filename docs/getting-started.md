@@ -88,6 +88,23 @@ Production builds go to `dist/`:
 
 ---
 
+## Automated GitHub Releases
+
+When you push a **minor** or **major** version bump in `package.json` to `main`, a GitHub Actions workflow automatically builds Linux and Windows artifacts and creates a GitHub Release:
+
+| Version change | Example | Release? |
+|---|---|---|
+| Patch bump | `1.2.8` → `1.2.9` | ❌ No |
+| Minor bump | `1.2.8` → `1.3.0` | ✅ Yes |
+| Major bump | `1.3.0` → `2.0.0` | ✅ Yes |
+| No `package.json` change | — | ❌ Workflow skipped |
+
+The workflow runs on GitHub-hosted runners — you don't need to build anything locally. Find releases at `https://github.com/shakiata/satisfactoryStats/releases`.
+
+Workflow file: `.github/workflows/release.yml`
+
+---
+
 ## Troubleshooting
 
 ### "Connection failed" in the app
