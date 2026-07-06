@@ -11,10 +11,10 @@ on:
   push:
     branches: [main]
     paths:
-      - 'package.json'
+      - "package.json"
 
 permissions:
-  contents: write  # required to create releases and push tags
+  contents: write # required to create releases and push tags
 
 jobs:
   # ─── Version Gate ────────────────────────────────────────────
@@ -72,17 +72,17 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linux
-            artifact_pattern: 'dist/*.AppImage'
+            artifact_pattern: "dist/*.AppImage"
           - os: windows-latest
             target: win
-            artifact_pattern: 'dist/*.exe'
+            artifact_pattern: "dist/*.exe"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
