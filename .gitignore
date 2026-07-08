@@ -1,5 +1,35 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Python (prevent accidental venv in a TypeScript project)
+.venv/
+
+# Node.js
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Electron build output
+dist/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
 # dependencies
 /node_modules
 /.pnp

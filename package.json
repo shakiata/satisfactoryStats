@@ -51,6 +51,9 @@
       "icon": "public/icon.png"
     }
   },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "next": "^15.0.0",
     "ngrok": "^5.0.0-beta.2",
