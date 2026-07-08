@@ -2,6 +2,8 @@
   "name": "satisfactory-stats",
   "version": "1.4.0",
   "private": true,
+  "description": "Desktop dashboard for Ficsit Remote Monitoring — monitor your Satisfactory factory in real time.",
+  "author": "Statusfactory",
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
@@ -53,6 +55,9 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "volta": {
+    "node": "24"
   },
   "dependencies": {
     "next": "^15.0.0",
