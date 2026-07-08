@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0a0a15"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4a742"/>
+      <stop offset="100%" stop-color="#e68a20"/>
+    </linearGradient>
+    <linearGradient id="accentAlt" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#e66020"/>
+      <stop offset="100%" stop-color="#f4a742"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect x="10" y="10" width="1004" height="1004" rx="180" ry="180" fill="url(#bg)"/>
+
+  <!-- Outer gear ring -->
+  <g transform="translate(512,480)" fill="none" stroke="url(#accent)" stroke-width="36" stroke-linecap="round">
+    <!-- Top cog -->
+    <rect x="-48" y="-330" width="96" height="72" rx="20" fill="url(#accent)"/>
+    <rect x="-48" y="258" width="96" height="72" rx="20" fill="url(#accent)"/>
+    <rect x="-330" y="-48" width="72" height="96" rx="20" fill="url(#accent)"/>
+    <rect x="258" y="-48" width="72" height="96" rx="20" fill="url(#accent)"/>
+    <!-- Diagonals -->
+    <rect x="-290" y="-290" width="72" height="72" rx="18" transform="rotate(45,-254,-254)" fill="url(#accent)"/>
+    <rect x="218" y="-290" width="72" height="72" rx="18" transform="rotate(-45,254,254)" fill="url(#accent)"/>
+    <rect x="-290" y="218" width="72" height="72" rx="18" transform="rotate(-45,-254,-254)" fill="url(#accent)"/>
+    <rect x="218" y="218" width="72" height="72" rx="18" transform="rotate(45,254,254)" fill="url(#accent)"/>
+  </g>
+
+  <!-- Inner ring -->
+  <circle cx="512" cy="480" r="210" fill="none" stroke="url(#accent)" stroke-width="28" opacity="0.5"/>
+
+  <!-- Three chart bars -->
+  <g>
+    <!-- Bar 1: tall -->
+    <rect x="420" y="380" width="52" height="180" rx="12" fill="url(#accent)"/>
+    <!-- Bar 2: medium -->
+    <rect x="486" y="420" width="52" height="140" rx="12" fill="url(#accentAlt)"/>
+    <!-- Bar 3: short -->
+    <rect x="552" y="460" width="52" height="100" rx="12" fill="url(#accent)"/>
+  </g>
+
+  <!-- Pulse line over bars -->
+  <polyline points="380,560 440,500 490,530 540,440 590,480 640,400"
+    fill="none" stroke="#f4a742" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+
+  <!-- Small status dot -->
+  <circle cx="620" cy="380" r="16" fill="#2ecc71"/>
+  <circle cx="620" cy="380" r="24" fill="#2ecc71" opacity="0.3">
+    <animate attributeName="r" values="24;40;24" dur="1.5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0;0.3" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+</svg>
