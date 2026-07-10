@@ -366,7 +366,7 @@ export function TrainControlTower({ config }: Props) {
         <p className="text-sm" style={{ color: CTRL_GREEN }}>
           No trains detected
         </p>
-        <p className="text-[10px] mt-1 opacity-50" style={{ color: CTRL_GREEN }}>
+        <p className="text-[13px] mt-1 opacity-50" style={{ color: CTRL_GREEN }}>
           Place a locomotive and freight station to see train data
         </p>
       </div>
@@ -402,7 +402,7 @@ export function TrainControlTower({ config }: Props) {
         style={{ borderColor: `${CTRL_GREEN}20`, backgroundColor: '#080e08' }}
       >
         <div className="overflow-x-auto">
-          <table className="w-full text-[10px] font-mono">
+          <table className="w-full text-[13px] font-mono">
             <thead>
               <tr className="border-b" style={{ borderColor: `${CTRL_GREEN}10` }}>
                 <SortHeader
@@ -466,7 +466,7 @@ export function TrainControlTower({ config }: Props) {
       <div>
         <button
           onClick={() => setShowMap(!showMap)}
-          className="text-[10px] font-mono uppercase tracking-wider px-3 py-1.5 rounded border transition-colors"
+          className="text-[13px] font-mono uppercase tracking-wider px-3 py-1.5 rounded border transition-colors"
           style={{
             color: CTRL_GREEN,
             borderColor: `${CTRL_GREEN}30`,
@@ -524,7 +524,7 @@ function StatusBar({
     >
       <div className="flex items-center gap-2">
         <span
-          className="text-[10px] uppercase tracking-widest opacity-60"
+          className="text-[13px] uppercase tracking-widest opacity-60"
           style={{ color: CTRL_GREEN }}
         >
           SYS OK
@@ -539,7 +539,7 @@ function StatusBar({
         <StatBlock label="Derailed" value={derailedCount} color={CTRL_RED} />
       )}
       <StatBlock label="Cargo" value={totalCargo} color={CTRL_AMBER} />
-      <div className="ml-auto text-[10px] font-mono opacity-40" style={{ color: CTRL_GREEN }}>
+      <div className="ml-auto text-[13px] font-mono opacity-40" style={{ color: CTRL_GREEN }}>
         {new Date().toLocaleTimeString()}
       </div>
     </div>
@@ -560,14 +560,14 @@ function StatBlock({
 }) {
   return (
     <div className="flex items-baseline gap-1.5">
-      <span className="text-[10px] uppercase tracking-wider opacity-50" style={{ color }}>
+      <span className="text-[13px] uppercase tracking-wider opacity-50" style={{ color }}>
         {label}
       </span>
       <span className="text-lg font-bold font-mono" style={{ color }}>
         {formatNumber(value)}
       </span>
       {sub && (
-        <span className="text-[9px] opacity-50" style={{ color }}>
+        <span className="text-[11px] opacity-50" style={{ color }}>
           {sub}
         </span>
       )}
@@ -625,7 +625,7 @@ function FilterBar({
             <button
               key={key}
               onClick={() => onStatusFilter(key)}
-              className="text-[9px] font-mono font-bold px-2.5 py-1.5 uppercase tracking-wider transition-colors"
+              className="text-[11px] font-mono font-bold px-2.5 py-1.5 uppercase tracking-wider transition-colors"
               style={{
                 backgroundColor: active ? `${color}18` : 'transparent',
                 color: active ? color : '#445',
@@ -656,7 +656,7 @@ function FilterBar({
           value={search}
           onChange={(e) => onSearch(e.target.value)}
           placeholder="Search trains…"
-          className="text-[10px] font-mono rounded-lg pl-7 pr-3 py-1.5 border w-48 outline-none transition-colors"
+          className="text-[13px] font-mono rounded-lg pl-7 pr-3 py-1.5 border w-48 outline-none transition-colors"
           style={{
             backgroundColor: '#080e08',
             color: CTRL_GREEN,
@@ -667,7 +667,7 @@ function FilterBar({
         {search && (
           <button
             onClick={() => onSearch('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] hover:opacity-80"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] hover:opacity-80"
             style={{ color: `${CTRL_GREEN}60` }}
             aria-label="Clear search"
           >
@@ -705,7 +705,7 @@ function SortHeader({
       style={{ color: active ? CTRL_GREEN : `${CTRL_GREEN}60`, opacity: active ? 1 : 0.4 }}
     >
       {label}
-      <span className="text-[8px]">{indicator}</span>
+      <span className="text-[10px]">{indicator}</span>
     </th>
   );
 }
@@ -764,7 +764,7 @@ function TrainRow({
         {/* Name + expand */}
         <td className="px-2 py-1.5 whitespace-nowrap" style={{ color: moving ? '#ccd' : '#556' }}>
           <div className="flex items-center gap-1.5">
-            <span className="text-[9px]" style={{ color: `${CTRL_GREEN}40` }}>
+            <span className="text-[11px]" style={{ color: `${CTRL_GREEN}40` }}>
               {isExpanded ? '▼' : '▶'}
             </span>
             <div
@@ -779,7 +779,7 @@ function TrainRow({
         {/* Status */}
         <td className="px-2 py-1.5 whitespace-nowrap">
           <span
-            className="text-[8px] px-1.5 py-0.5 rounded font-bold uppercase"
+            className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase"
             style={{
               backgroundColor: `${statusColor}18`,
               color: statusColor,
@@ -809,7 +809,7 @@ function TrainRow({
         </td>
         {/* Throttle */}
         <td className="px-2 py-1.5 text-right whitespace-nowrap" style={{ color: moving ? '#889' : '#333' }}>
-          {moving ? `${throttle}%` : '—'}
+          {moving ? `${Math.round(throttle)}%` : '—'}
         </td>
         {/* Load % */}
         <td className="px-2 py-1.5 min-w-[80px]">
@@ -870,7 +870,7 @@ function LoadBar({ pct, width = 80 }: { pct: number; width?: number }) {
           style={{ width: `${Math.max(1, pct)}%`, backgroundColor: color }}
         />
       </div>
-      <span className="text-[9px] font-bold" style={{ color }}>
+      <span className="text-[11px] font-bold" style={{ color }}>
         {pct.toFixed(0)}%
       </span>
     </div>
@@ -905,7 +905,7 @@ function ExpandedDetail({
   return (
     <div className="space-y-3">
       {/* Summary row */}
-      <div className="flex items-center gap-6 text-[9px] font-mono flex-wrap">
+      <div className="flex items-center gap-6 text-[11px] font-mono flex-wrap">
         <span style={{ color: '#556' }}>
           {locos.length} loco{locos.length !== 1 ? 's' : ''} · {freights.length} freight{freights.length !== 1 ? 's' : ''}
         </span>
@@ -931,7 +931,7 @@ function ExpandedDetail({
       {vehicles.length > 0 && (
         <div>
           <div
-            className="text-[8px] uppercase tracking-wider mb-2 opacity-50"
+            className="text-[10px] uppercase tracking-wider mb-2 opacity-50"
             style={{ color: CTRL_GREEN }}
           >
             Railcars ({vehicles.length})
@@ -954,7 +954,7 @@ function ExpandedDetail({
                 >
                   <div className="flex items-center gap-1.5 mb-1">
                     <span
-                      className="text-[8px] font-bold uppercase px-1 rounded"
+                      className="text-[10px] font-bold uppercase px-1 rounded"
                       style={{
                         backgroundColor: type === 'loco' ? `${CTRL_GREEN}15` : `${CTRL_AMBER}15`,
                         color: type === 'loco' ? CTRL_GREEN : CTRL_AMBER,
@@ -962,7 +962,7 @@ function ExpandedDetail({
                     >
                       {type === 'loco' ? 'LOCO' : 'FRT'}
                     </span>
-                    <span className="text-[9px] truncate" style={{ color: '#888' }}>
+                    <span className="text-[11px] truncate" style={{ color: '#888' }}>
                       {car.Name || `Car ${i + 1}`}
                     </span>
                   </div>
@@ -971,27 +971,25 @@ function ExpandedDetail({
                   {type === 'freight' && (
                     <div className="mt-1.5 space-y-0.5">
                       {inv.length === 0 ? (
-                        <span className="text-[8px] opacity-30" style={{ color: CTRL_GREEN }}>
+                        <span className="text-[10px] opacity-30" style={{ color: CTRL_GREEN }}>
                           Empty
                         </span>
                       ) : (
                         inv.map((item, j) => (
                           <div key={item.ClassName || j} className="flex items-center gap-1.5">
-                            <div className="w-4 h-4 shrink-0">
-                              <ItemIcon
-                                className={item.ClassName}
-                                name={item.Name}
-                                size="sm"
-                              />
-                            </div>
+                            <ItemIcon
+                              className={item.ClassName}
+                              name={item.Name}
+                              size="sm"
+                            />
                             <span
-                              className="text-[9px] truncate flex-1"
+                              className="text-[11px] truncate flex-1"
                               style={{ color: '#889' }}
                             >
                               {item.Name.replace(/^Desc_/, '').replace(/_C$/, '')}
                             </span>
                             <span
-                              className="text-[9px] font-bold shrink-0"
+                              className="text-[11px] font-bold shrink-0"
                               style={{ color: CTRL_AMBER }}
                             >
                               {formatNumber(item.Amount)}
@@ -1012,7 +1010,7 @@ function ExpandedDetail({
       {timetable.length > 0 && (
         <div>
           <div
-            className="text-[8px] uppercase tracking-wider mb-2 opacity-50"
+            className="text-[10px] uppercase tracking-wider mb-2 opacity-50"
             style={{ color: CTRL_GREEN }}
           >
             Timetable ({timetable.length} stops)
@@ -1023,7 +1021,7 @@ function ExpandedDetail({
               return (
                 <div
                   key={i}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[8px] font-mono"
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono"
                   style={{
                     backgroundColor: isCurrent ? `${CTRL_GREEN}12` : 'transparent',
                     border: `1px solid ${isCurrent ? CTRL_GREEN : `${CTRL_GREEN}08`}`,
@@ -1034,7 +1032,7 @@ function ExpandedDetail({
                   <span>{cleanName(stop.StationName)}</span>
                   {isCurrent && (
                     <span
-                      className="text-[6px] px-1 rounded"
+                      className="text-[8px] px-1 rounded"
                       style={{ backgroundColor: `${CTRL_GREEN}20`, color: CTRL_GREEN }}
                     >
                       NOW
@@ -1219,7 +1217,7 @@ function CollapsibleMap({
         </button>
         <button
           onClick={resetView}
-          className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold border transition-colors"
+          className="w-6 h-6 rounded flex items-center justify-center text-[11px] font-bold border transition-colors"
           style={{
             color: CTRL_AMBER,
             borderColor: `${CTRL_AMBER}30`,
@@ -1233,7 +1231,7 @@ function CollapsibleMap({
 
       {/* Title */}
       <div
-        className="absolute top-2 left-3 z-10 text-[10px] uppercase tracking-widest opacity-50"
+        className="absolute top-2 left-3 z-10 text-[13px] uppercase tracking-widest opacity-50"
         style={{ color: CTRL_GREEN }}
       >
         Track Monitor
@@ -1403,7 +1401,7 @@ function StationModal({
         </div>
 
         {/* Station info grid */}
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-4 text-[10px] font-mono">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-4 text-[13px] font-mono">
           <span className="opacity-50" style={{ color: CTRL_GREEN }}>
             Type
           </span>
@@ -1430,7 +1428,7 @@ function StationModal({
         {sortedCargo.length > 0 && (
           <div className="mb-3">
             <div
-              className="text-[9px] uppercase tracking-widest mb-2 opacity-50"
+              className="text-[11px] uppercase tracking-widest mb-2 opacity-50"
               style={{ color: CTRL_AMBER }}
             >
               Cargo ({sortedCargo.length})
@@ -1442,13 +1440,11 @@ function StationModal({
                   className="flex items-center gap-2 px-2 py-1 rounded"
                   style={{ backgroundColor: `${CTRL_GREEN}06` }}
                 >
-                  <div className="w-4 h-4 shrink-0">
-                    <ItemIcon className={item.ClassName} name={item.Name} size="sm" />
-                  </div>
-                  <span className="text-[10px] truncate flex-1" style={{ color: '#889' }}>
+                  <ItemIcon className={item.ClassName} name={item.Name} size="sm" />
+                  <span className="text-[13px] truncate flex-1" style={{ color: '#889' }}>
                     {item.Name.replace(/^Desc_/, '').replace(/_C$/, '')}
                   </span>
-                  <span className="text-[10px] font-bold font-mono shrink-0" style={{ color: CTRL_AMBER }}>
+                  <span className="text-[13px] font-bold font-mono shrink-0" style={{ color: CTRL_AMBER }}>
                     {formatNumber(item.Amount)}
                   </span>
                 </div>
@@ -1461,7 +1457,7 @@ function StationModal({
         {sortedFuel.length > 0 && (
           <div>
             <div
-              className="text-[9px] uppercase tracking-widest mb-2 opacity-50"
+              className="text-[11px] uppercase tracking-widest mb-2 opacity-50"
               style={{ color: CTRL_GREEN }}
             >
               Fuel ({sortedFuel.length})
@@ -1473,13 +1469,11 @@ function StationModal({
                   className="flex items-center gap-2 px-2 py-1 rounded"
                   style={{ backgroundColor: `${CTRL_GREEN}06` }}
                 >
-                  <div className="w-4 h-4 shrink-0">
-                    <ItemIcon className={item.ClassName} name={item.Name} size="sm" />
-                  </div>
-                  <span className="text-[10px] truncate flex-1" style={{ color: '#889' }}>
+                  <ItemIcon className={item.ClassName} name={item.Name} size="sm" />
+                  <span className="text-[13px] truncate flex-1" style={{ color: '#889' }}>
                     {item.Name.replace(/^Desc_/, '').replace(/_C$/, '')}
                   </span>
-                  <span className="text-[10px] font-bold font-mono shrink-0" style={{ color: CTRL_GREEN }}>
+                  <span className="text-[13px] font-bold font-mono shrink-0" style={{ color: CTRL_GREEN }}>
                     {formatNumber(item.Amount)}
                   </span>
                 </div>
@@ -1490,7 +1484,7 @@ function StationModal({
 
         {/* Empty state */}
         {sortedCargo.length === 0 && sortedFuel.length === 0 && (
-          <p className="text-[10px] text-center py-4 opacity-40" style={{ color: CTRL_GREEN }}>
+          <p className="text-[13px] text-center py-4 opacity-40" style={{ color: CTRL_GREEN }}>
             No cargo or fuel at this station
           </p>
         )}
