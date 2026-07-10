@@ -13,7 +13,7 @@ graph TD
     end
 
     subgraph "Page Shell"
-        HOME["page.tsx (Home)<br/>'use client'<br/>connection FSM<br/>tab routing (13 tabs)<br/>timeWindow orchestrator"]
+        HOME["page.tsx (Home)<br/>'use client'<br/>connection FSM<br/>tab routing (12 tabs)<br/>timeWindow orchestrator"]
     end
 
     subgraph "Connection & Nav"
@@ -41,10 +41,6 @@ graph TD
         GENERATORS["GeneratorStatus<br/>getGenerators polling (8s)<br/>fuel levels + load %<br/>expandable detail rows<br/>time-window averaging"]
     end
 
-    subgraph "Map Tab"
-        FACTORY_MAP["FactoryMap<br/>Canvas-based map<br/>getFactory + getGenerators<br/>+ getExtractor + getPlayer<br/>pan/zoom + layer toggles<br/>8192×8192 coordinate grid<br/>iconCache for PNG icons"]
-    end
-
     subgraph "Trains Tab"
         TRAINS["TrainControlTower<br/>getTrainStation + getTrains<br/>SVG track map<br/>timetable + railcar details<br/>speed + status display"]
     end
@@ -70,7 +66,7 @@ graph TD
     end
 
     subgraph "Settings Tab"
-        SETTINGS["SettingsPanel<br/>theme color pickers (12)<br/>icon size toggle<br/>map scale slider<br/>refresh rate dropdown<br/>theme JSON export/import<br/>live preview panel"]
+        SETTINGS["SettingsPanel<br/>theme color pickers (12)<br/>icon size toggle<br/>refresh rate dropdown<br/>theme JSON export/import<br/>live preview panel"]
     end
 
     subgraph "Shared UI Components"
@@ -101,7 +97,6 @@ graph TD
     HOME --> FACTORY
     HOME --> RESOURCES
     HOME --> GENERATORS
-    HOME --> FACTORY_MAP
     HOME --> TRAINS
     HOME --> INVENTORY
     HOME --> PLAYERS
@@ -139,9 +134,6 @@ graph TD
     GENERATORS -.-> API_LIB
     GENERATORS -.-> TIME_BUFFER
     GENERATORS -.-> USE_THEME_HOOK
-
-    FACTORY_MAP -.-> API_LIB
-    FACTORY_MAP -.-> USE_THEME_HOOK
 
     TRAINS -.-> API_LIB
     TRAINS -.-> FORMATTERS
@@ -184,7 +176,7 @@ graph TD
     class LAYOUT entry
     class TP,HOME shell
     class CONN,TIME shell
-    class POWER,PROD,FACTORY,RESOURCES,GENERATORS,FACTORY_MAP,TRAINS,INVENTORY,PLAYERS,CHAT,FLUIDS,API_EXPLORER,SETTINGS tab
+    class POWER,PROD,FACTORY,RESOURCES,GENERATORS,TRAINS,INVENTORY,PLAYERS,CHAT,FLUIDS,API_EXPLORER,SETTINGS tab
     class ITEM_ICON shared
     class USE_CONFIG,USE_SETTINGS,USE_THEME_HOOK,TIME_BUFFER hook
     class API_LIB,FORMATTERS,COLORS,NAMES,FLUIDS_LIB lib

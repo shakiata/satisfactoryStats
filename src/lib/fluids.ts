@@ -25,10 +25,16 @@ interface RecipeProduct {
 export interface RawRecipe {
   ClassName: string;
   displayName?: string;
-  /** Products this recipe creates. */
+  /** Some FRM versions include the display name in a `Name` field. */
+  Name?: string;
+  /** Products this recipe creates (camelCase variant). */
   products?: RecipeProduct[];
-  /** Ingredients consumed by this recipe. */
+  /** Ingredients consumed by this recipe (camelCase variant). */
   ingredients?: RecipeProduct[];
+  /** Products this recipe creates (PascalCase variant). */
+  Products?: RecipeProduct[];
+  /** Ingredients consumed by this recipe (PascalCase variant). */
+  Ingredients?: RecipeProduct[];
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -194,12 +200,17 @@ export interface FluidSummary {
  * @param fluidSet - Optional pre-built fluid ClassName set; built automatically if null.
  * @param worldInv - Optional world inventory map (ClassName → total amount)
  *                   for estimating stored fluid volume.
+ * @param consumptionFromBuildings - Optional map of per-fluid consumption aggregated
+ *   from building ingredients. When provided, its values override the `CurrentConsumed`
+ *   and `MaxConsumed` from `stats`. FRM's getProdStats typically reports 0 consumption
+ *   for fluid items, but the per-building ingredient data has the real consumption.
  * @returns Sorted array of FluidSummary objects (by absolute net magnitude descending).
  */
 export function getFluidSummaries(
   stats: ProdStatSnapshot[],
   _fluidSet?: Set<string> | null,
   worldInv?: Map<string, number>,
+  consumptionFromBuildings?: Map<string, { cons: number; maxCons: number }>,
 ): FluidSummary[] {
   // Use isFluidClassName for pattern-based detection — catches all
   // Desc_Liquid*, Desc_Gas*, and word-hint fluids, not just the 13
@@ -218,14 +229,20 @@ export function getFluidSummaries(
       item.ClassName.startsWith('Desc_Gas') ||
       (item.ClassName.includes('Gas') && !item.ClassName.includes('GasTank'));
 
+    // FRM's getProdStats typically reports 0 consumption for fluid items.
+    // Override with per-building ingredient data when available.
+    const buildingCons = consumptionFromBuildings?.get(item.ClassName);
+    const actualCons = buildingCons?.cons ?? item.CurrentConsumed;
+    const actualMaxCons = buildingCons?.maxCons ?? item.MaxConsumed;
+
     return {
       name: cleanName,
       className: item.ClassName,
       prodPerMin: item.CurrentProd,
-      consPerMin: item.CurrentConsumed,
-      netPerMin: item.CurrentProd - item.CurrentConsumed,
+      consPerMin: actualCons,
+      netPerMin: item.CurrentProd - actualCons,
       maxProd: item.MaxProd,
-      maxCons: item.MaxConsumed,
+      maxCons: actualMaxCons,
       storedAmount: stored,
       isGas,
     };
@@ -238,58 +255,100 @@ export function getFluidSummaries(
 }
 
 /**
- * Merges fluid production entries from getExtractor into the getProdStats
- * array.  FRM reports fluid production (Water, Crude Oil) via getExtractor,
- * not getProdStats — so this function synthesizes ProdStatItem-shaped entries
- * from each extractor's production[] array, aggregating by ClassName.
+ * Merges fluid production AND consumption entries from all fluid-handling
+ * buildings (refineries, blenders, packagers, extractors) into the
+ * getProdStats array.
  *
- * The merge iterator skips non-fluid production (e.g. Coal from Miners)
- * using isFluidClassName().  Multiple extractors producing the same
- * ClassName are summed for rates and averaged for ProdPercent.
+ * FRM omits ALL pipeline fluids from getProdStats, so this function
+ * synthesizes ProdStatItem-shaped entries from each building's
+ * production[] (for output) and ingredients[] (for input) arrays,
+ * aggregating by ClassName.
  *
- * @param items      - Raw ProdStatItem[] from getProdStats (may be null).
- * @param extractors - Extractor[] from getExtractor (may be null/empty).
+ * Skips non-fluid production/ingredients via isFluidClassName().
+ *
+ * @param items     - Raw ProdStatItem[] from getProdStats (may be null).
+ * @param buildings - FactoryBuilding[] from getRefinery/getBlender/
+ *                    getPackager.  Extractors must be cast to
+ *                    FactoryBuilding shape (ingredients: []) first.
  * @returns Combined array of original items + synthesized fluid entries.
  */
-export function mergeExtractorFluids(
+export function mergeBuildingFluids(
   items: ProdStatItem[] | null,
-  extractors: Extractor[] | null,
+  buildings: FactoryBuilding[] | null,
 ): ProdStatItem[] {
   const base = items ?? [];
-  if (!extractors || extractors.length === 0) return base;
+  if (!buildings || buildings.length === 0) return base;
 
-  // Aggregate extractor fluid production by ClassName
+  // Aggregate fluid production and consumption by ClassName.
+  // prodCount/consCount track separate building-counts for averaging
+  // ProdPercent vs ConsPercent.
   const fluidAgg = new Map<string, {
     name: string;
     currentProd: number;
     maxProd: number;
     prodPercentSum: number;
-    count: number;
+    prodCount: number;
+    currentConsumed: number;
+    maxConsumed: number;
+    consPercentSum: number;
+    consCount: number;
   }>();
 
-  for (const ext of extractors) {
-    if (!ext.production) continue;
-    for (const prod of ext.production) {
-      if (!isFluidClassName(prod.ClassName)) continue;
-      const existing = fluidAgg.get(prod.ClassName);
-      if (existing) {
-        existing.currentProd += prod.CurrentProd ?? 0;
-        existing.maxProd += prod.MaxProd ?? 0;
-        existing.prodPercentSum += prod.ProdPercent ?? 0;
-        existing.count += 1;
-      } else {
-        fluidAgg.set(prod.ClassName, {
-          name: prod.Name,
-          currentProd: prod.CurrentProd ?? 0,
-          maxProd: prod.MaxProd ?? 0,
-          prodPercentSum: prod.ProdPercent ?? 0,
-          count: 1,
-        });
+  for (const b of buildings) {
+    // Production (output) from this building
+    if (b.production) {
+      for (const prod of b.production) {
+        if (!isFluidClassName(prod.ClassName)) continue;
+        const existing = fluidAgg.get(prod.ClassName);
+        if (existing) {
+          existing.currentProd += prod.CurrentProd ?? 0;
+          existing.maxProd += prod.MaxProd ?? 0;
+          existing.prodPercentSum += prod.ProdPercent ?? 0;
+          existing.prodCount += 1;
+        } else {
+          fluidAgg.set(prod.ClassName, {
+            name: prod.Name,
+            currentProd: prod.CurrentProd ?? 0,
+            maxProd: prod.MaxProd ?? 0,
+            prodPercentSum: prod.ProdPercent ?? 0,
+            prodCount: 1,
+            currentConsumed: 0,
+            maxConsumed: 0,
+            consPercentSum: 0,
+            consCount: 0,
+          });
+        }
+      }
+    }
+
+    // Ingredients (consumed) by this building
+    if (b.ingredients) {
+      for (const ing of b.ingredients) {
+        if (!isFluidClassName(ing.ClassName)) continue;
+        const existing = fluidAgg.get(ing.ClassName);
+        if (existing) {
+          existing.currentConsumed += ing.CurrentConsumed ?? 0;
+          existing.maxConsumed += ing.MaxConsumed ?? 0;
+          existing.consPercentSum += ing.ConsPercent ?? 0;
+          existing.consCount += 1;
+        } else {
+          fluidAgg.set(ing.ClassName, {
+            name: ing.Name,
+            currentProd: 0,
+            maxProd: 0,
+            prodPercentSum: 0,
+            prodCount: 0,
+            currentConsumed: ing.CurrentConsumed ?? 0,
+            maxConsumed: ing.MaxConsumed ?? 0,
+            consPercentSum: ing.ConsPercent ?? 0,
+            consCount: 1,
+          });
+        }
       }
     }
   }
 
-  // Build synthetic ProdStatItem entries for fluids found in extractors
+  // Build synthetic ProdStatItem entries for fluids found in buildings
   const extras: ProdStatItem[] = [];
   for (const [className, agg] of fluidAgg) {
     extras.push({
@@ -297,15 +356,35 @@ export function mergeExtractorFluids(
       ClassName: className,
       CurrentProd: agg.currentProd,
       MaxProd: agg.maxProd,
-      CurrentConsumed: 0,
-      MaxConsumed: 0,
-      ProdPerMin: `P: ${agg.currentProd.toFixed(1)}/ min - C: 0.0/ min`,
-      ProdPercent: agg.count > 0 ? agg.prodPercentSum / agg.count : 0,
-      ConsPercent: 0,
+      CurrentConsumed: agg.currentConsumed,
+      MaxConsumed: agg.maxConsumed,
+      ProdPerMin: `P: ${agg.currentProd.toFixed(1)}/ min - C: ${agg.currentConsumed.toFixed(1)}/ min`,
+      ProdPercent: agg.prodCount > 0 ? agg.prodPercentSum / agg.prodCount : 0,
+      ConsPercent: agg.consCount > 0 ? agg.consPercentSum / agg.consCount : 0,
     });
   }
 
   return [...base, ...extras];
+}
+
+/**
+ * Legacy wrapper — converts Extractor[] to FactoryBuilding[] (with empty
+ * ingredients) and delegates to mergeBuildingFluids.
+ *
+ * @deprecated Use mergeBuildingFluids directly with FactoryBuilding[].
+ */
+export function mergeExtractorFluids(
+  items: ProdStatItem[] | null,
+  extractors: Extractor[] | null,
+): ProdStatItem[] {
+  const buildings: FactoryBuilding[] = (extractors ?? []).map((e) => ({
+    ...e,
+    ingredients: [],
+    InputInventory: [],
+    OutputInventory: [],
+    Productivity: 100,
+  } as FactoryBuilding));
+  return mergeBuildingFluids(items, buildings);
 }
 
 /**
@@ -342,6 +421,11 @@ export function traceRawMaterials(
   const results: RawMaterialLink[] = [];
   const visited = new Set<string>();
 
+  // FRM may return products/ingredients as lowercase (products, ingredients)
+  // OR PascalCase (Products, Ingredients).  Accept both.
+  const recipeProducts = (r: RawRecipe) => r.products ?? r.Products;
+  const recipeIngredients = (r: RawRecipe) => r.ingredients ?? r.Ingredients;
+
   /** Recursively walk the recipe graph looking for non-fluid ingredient origins. */
   function walk(className: string, depth: number) {
     if (depth > maxDepth || visited.has(className)) return;
@@ -349,12 +433,13 @@ export function traceRawMaterials(
 
     // Find recipes that produce this item
     const producers = recipes.filter((r) =>
-      r.products?.some((p) => p.ClassName === className),
+      recipeProducts(r)?.some((p) => p.ClassName === className),
     );
 
     for (const recipe of producers) {
-      if (!recipe.ingredients) continue;
-      for (const ing of recipe.ingredients) {
+      const ingredients = recipeIngredients(recipe);
+      if (!ingredients) continue;
+      for (const ing of ingredients) {
         // Use isFluidClassName for pattern-based detection
         const isFluid = isFluidClassName(ing.ClassName);
         if (!isFluid) {

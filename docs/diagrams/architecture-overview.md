@@ -48,7 +48,6 @@ graph TD
             FACTORY["FactoryEfficiency<br/>getFactory<br/>per-type building summaries"]
             RESOURCES["ResourceTracker<br/>getExtractor<br/>miners, extractors, nodes"]
             GENERATORS["GeneratorStatus<br/>getGenerators<br/>fuel levels, load, capacity"]
-            FACTORY_MAP["FactoryMap<br/>Canvas-based map<br/>getFactory + getGenerators<br/>+ getExtractor + getPlayer"]
             TRAINS["TrainControlTower<br/>getTrainStation + getTrains<br/>SVG track map, timetables"]
             INVENTORY["InventoryPanel<br/>getWorldInv + getStorageInv<br/>+ getCloudInv<br/>aggregated + per-container"]
             PLAYERS["PlayerMap<br/>getPlayer<br/>online players + coordinates"]
@@ -90,7 +89,6 @@ graph TD
     PAGE --> FACTORY
     PAGE --> RESOURCES
     PAGE --> GENERATORS
-    PAGE --> FACTORY_MAP
     PAGE --> TRAINS
     PAGE --> INVENTORY
     PAGE --> PLAYERS
@@ -113,7 +111,6 @@ graph TD
     RESOURCES --> FORMATTERS
     GENERATORS --> API
     GENERATORS --> TIME_BUFFER
-    FACTORY_MAP --> API
     TRAINS --> API
     TRAINS --> FORMATTERS
     TRAINS --> NAMES
@@ -143,7 +140,6 @@ graph TD
     FACTORY --> USE_THEME
     RESOURCES --> USE_THEME
     GENERATORS --> USE_THEME
-    FACTORY_MAP --> USE_THEME
     TRAINS --> USE_THEME
     INVENTORY --> USE_THEME
     PLAYERS --> USE_THEME
@@ -166,7 +162,7 @@ graph TD
     class LAYOUT,PAGE,CONN_BAR,ITEM_ICON,TIME_SEL app
     class USE_CONFIG,USE_SETTINGS,USE_THEME,TIME_BUFFER hooks
     class API,TYPES,FORMATTERS,COLORS,NAMES,FLUIDS libs
-    class POWER,PROD,FACTORY,RESOURCES,GENERATORS,FACTORY_MAP,TRAINS,INVENTORY,PLAYERS,CHAT,FLUIDS_TAB,API_EXPLORER,SETTINGS tabs
+    class POWER,PROD,FACTORY,RESOURCES,GENERATORS,TRAINS,INVENTORY,PLAYERS,CHAT,FLUIDS_TAB,API_EXPLORER,SETTINGS tabs
     class MAIN,PRELOAD electron
     class LS storage
 ```

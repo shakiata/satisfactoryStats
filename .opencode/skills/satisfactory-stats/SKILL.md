@@ -217,7 +217,7 @@ useEffect(() => {
 4. **No inline `style={{}}`** except for `var(--)` lookups. Tailwind for everything else.
 5. **All components `'use client'`**.
 6. **Electron features** gated on `!!window.electronAPI`.
-7. **Canvas components** (`FactoryMap`, `TrainControlTower`) use `requestAnimationFrame` + handle `devicePixelRatio`.
+7. **Canvas components** (`TrainControlTower`) use `requestAnimationFrame` + handle `devicePixelRatio`.
 
 ---
 

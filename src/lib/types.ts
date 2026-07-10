@@ -248,24 +248,18 @@ export interface DashboardTheme {
 export interface AppSettings {
   /** Icon size for ProductionMonitor / Inventory cards */
   iconSize: 'sm' | 'md' | 'lg';
-  /** Scale multiplier for icons on the Factory Map (0.5 – 2.0) */
-  mapIconScale: number;
   /** Last active dashboard tab */
   activeTab: string;
   /** Last selected time window (ms), 0 = live */
   timeWindow: number;
-  /** Visible layers on the Factory Map */
-  mapVisibleLayers: string[];
   /** Visual theme mode: dark (default) or light */
   themeMode: 'dark' | 'light';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   iconSize: 'md',
-  mapIconScale: 1,
   activeTab: 'power',
   timeWindow: 0,
-  mapVisibleLayers: ['factory', 'generator', 'extractor', 'player'],
   themeMode: 'dark',
 };
 

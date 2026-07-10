@@ -10,7 +10,6 @@ import { FactoryEfficiency } from '@/components/dashboard/FactoryEfficiency';
 import { ResourceTracker } from '@/components/dashboard/ResourceTracker';
 import { GeneratorStatus } from '@/components/dashboard/GeneratorStatus';
 import { PlayerMap } from '@/components/dashboard/PlayerMap';
-import { FactoryMap } from '@/components/dashboard/FactoryMap';
 import { InventoryPanel } from '@/components/dashboard/InventoryPanel';
 import { ChatPanel } from '@/components/dashboard/ChatPanel';
 import { TrainControlTower } from '@/components/dashboard/TrainControlTower';
@@ -28,7 +27,6 @@ const TABS = [
   { id: 'factory', label: '🏭 Factory', icon: '🏭' },
   { id: 'resources', label: '⛏️ Resources', icon: '⛏️' },
   { id: 'generators', label: '🔥 Generators', icon: '🔥' },
-  { id: 'map', label: '🗺️ Map', icon: '🗺️' },
   { id: 'trains', label: '🚂 Trains', icon: '🚂' },
   { id: 'inventory', label: '📦 Inventory', icon: '📦' },
   { id: 'players', label: '👤 Players', icon: '👤' },
@@ -191,7 +189,6 @@ export default function Home() {
             {activeTab === 'factory' && <FactoryEfficiency config={config} timeWindow={timeWindow} />}
             {activeTab === 'resources' && <ResourceTracker config={config} timeWindow={timeWindow} />}
             {activeTab === 'generators' && <GeneratorStatus config={config} timeWindow={timeWindow} />}
-            {activeTab === 'map' && <FactoryMap config={config} settings={settings} saveSettings={saveSettings} />}
             {activeTab === 'trains' && <TrainControlTower config={config} />}
             {activeTab === 'inventory' && <InventoryPanel config={config} settings={settings} />}
             {activeTab === 'players' && <PlayerMap config={config} />}

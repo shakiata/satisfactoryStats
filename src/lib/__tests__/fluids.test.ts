@@ -12,10 +12,11 @@ import {
   isFluidItem,
   getFluidSummaries,
   mergeExtractorFluids,
+  mergeBuildingFluids,
   traceRawMaterials,
 } from '@/lib/fluids';
 import type { FluidSummary, RawRecipe } from '@/lib/fluids';
-import type { ProdStatSnapshot, ProdStatItem, Extractor } from '@/lib/types';
+import type { ProdStatSnapshot, ProdStatItem, Extractor, FactoryBuilding } from '@/lib/types';
 
 // ─── Test helpers ──────────────────────────────────────────────
 
@@ -226,6 +227,28 @@ describe('getFluidSummaries', () => {
     const water = summaries.find((s) => s.className === 'Desc_Water_C')!;
     expect(water.isGas).toBe(false);
   });
+
+  it('overrides consumption from building data when provided', () => {
+    const consumptionFromBuildings = new Map<string, { cons: number; maxCons: number }>([
+      ['Desc_Water_C', { cons: 250, maxCons: 500 }],
+      ['Desc_LiquidFuel_C', { cons: 0, maxCons: 300 }],
+    ]);
+    const summaries = getFluidSummaries(snapshots, fluidSet, undefined, consumptionFromBuildings);
+    const water = summaries.find((s) => s.className === 'Desc_Water_C')!;
+    // Water's snapshot has CurrentConsumed=200, but building data says 250
+    expect(water.consPerMin).toBe(250);
+    expect(water.maxCons).toBe(500);
+    expect(water.netPerMin).toBe(300 - 250); // 50
+  });
+
+  it('falls back to snapshot consumption when building data has no entry for a fluid', () => {
+    const consumptionFromBuildings = new Map<string, { cons: number; maxCons: number }>();
+    const summaries = getFluidSummaries(snapshots, fluidSet, undefined, consumptionFromBuildings);
+    const water = summaries.find((s) => s.className === 'Desc_Water_C')!;
+    // No override — should fall back to snapshot's CurrentConsumed=200
+    expect(water.consPerMin).toBe(200);
+    expect(water.maxCons).toBe(600);
+  });
 });
 
 // ─── traceRawMaterials ──────────────────────────────────────────
@@ -264,6 +287,26 @@ describe('traceRawMaterials', () => {
   it('returns empty array when recipes list is empty', () => {
     const materials = traceRawMaterials('Desc_AluminaSolution_C', fluidSet, []);
     expect(materials).toEqual([]);
+  });
+
+  it('handles PascalCase Products/Ingredients field names', () => {
+    // Some FRM versions return Products and Ingredients (capital P, capital I)
+    // instead of camelCase products/ingredients.
+    const pascalRecipes: RawRecipe[] = [
+      {
+        ClassName: 'Recipe_AluminaSolution_C',
+        Products: [{ ClassName: 'Desc_AluminaSolution_C', Name: 'Alumina Solution', Amount: 80 }],
+        Ingredients: [
+          { ClassName: 'Desc_Water_C', Name: 'Water', Amount: 100 },
+          { ClassName: 'Desc_OreBauxite_C', Name: 'Bauxite', Amount: 70 },
+        ],
+      },
+    ];
+    const materials = traceRawMaterials('Desc_AluminaSolution_C', null, pascalRecipes);
+    expect(materials.length).toBeGreaterThan(0);
+    const names = materials.map((m) => m.name);
+    expect(names).toContain('Bauxite');
+    expect(names).not.toContain('Water');
   });
 
   it('stops at maxDepth', () => {
@@ -365,5 +408,223 @@ describe('traceRawMaterials', () => {
     // Should not hang — returns empty since both are fluids and never reach a solid
     const materials = traceRawMaterials('Desc_LiquidTestX_C', null, circularRecipes);
     expect(materials).toEqual([]);
+  });
+});
+
+// ─── mergeBuildingFluids ─────────────────────────────────────────
+
+describe('mergeBuildingFluids', () => {
+  // ─── Helpers ────────────────────────────────────────────────
+
+  /** Minimal FactoryBuilding-like object for test scenarios. */
+  function makeBuilding(overrides: Partial<FactoryBuilding> & {
+    production?: Array<{ Name: string; ClassName: string; CurrentProd: number; MaxProd: number; ProdPercent: number }>;
+    ingredients?: Array<{ Name: string; ClassName: string; CurrentConsumed: number; MaxConsumed: number; ConsPercent: number }>;
+  }): FactoryBuilding {
+    return {
+      ID: 'test-id',
+      Name: 'Test Building',
+      ClassName: 'Desc_Building_C',
+      location: { x: 0, y: 0, z: 0 },
+      Recipe: 'Test Recipe',
+      RecipeClassName: 'Recipe_Test_C',
+      production: overrides.production ?? [],
+      ingredients: overrides.ingredients ?? [],
+      InputInventory: [],
+      OutputInventory: [],
+      Productivity: 100,
+      ManuSpeed: 100,
+      Somersloops: 0,
+      PowerShards: 0,
+      IsConfigured: true,
+      IsProducing: true,
+      IsPaused: false,
+      ...overrides,
+    };
+  }
+
+  it('merges fluid production from a single refinery', () => {
+    const refinery = makeBuilding({
+      Name: 'Refinery',
+      ClassName: 'Desc_Refinery_C',
+      production: [{ Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 50, MaxProd: 100, ProdPercent: 50 }],
+    });
+    const result = mergeBuildingFluids(null, [refinery]);
+    expect(result).toHaveLength(1);
+    const fuel = result[0];
+    expect(fuel.ClassName).toBe('Desc_LiquidFuel_C');
+    expect(fuel.CurrentProd).toBe(50);
+    expect(fuel.MaxProd).toBe(100);
+    expect(fuel.ProdPercent).toBe(50);
+    expect(fuel.CurrentConsumed).toBe(0);
+    expect(fuel.MaxConsumed).toBe(0);
+  });
+
+  it('aggregates same fluid production across multiple buildings', () => {
+    const refineries = [
+      makeBuilding({
+        ClassName: 'Desc_Refinery_C',
+        production: [{ Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 30, MaxProd: 60, ProdPercent: 50 }],
+      }),
+      makeBuilding({
+        ClassName: 'Desc_Refinery_C',
+        production: [{ Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 20, MaxProd: 60, ProdPercent: 100 }],
+      }),
+    ];
+    const result = mergeBuildingFluids([], refineries);
+    expect(result).toHaveLength(1);
+    expect(result[0].CurrentProd).toBe(50);
+    expect(result[0].MaxProd).toBe(120);
+    expect(result[0].ProdPercent).toBe(75); // average of 50 and 100
+  });
+
+  it('aggregates fluid consumption from building ingredients', () => {
+    const refineries = [
+      makeBuilding({
+        ClassName: 'Desc_Refinery_C',
+        ingredients: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentConsumed: 100, MaxConsumed: 120, ConsPercent: 83 }],
+      }),
+      makeBuilding({
+        ClassName: 'Desc_Blender_C',
+        ingredients: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentConsumed: 50, MaxConsumed: 60, ConsPercent: 83 }],
+      }),
+    ];
+    const result = mergeBuildingFluids([], refineries);
+    expect(result).toHaveLength(1);
+    expect(result[0].CurrentConsumed).toBe(150);
+    expect(result[0].MaxConsumed).toBe(180);
+    expect(result[0].CurrentProd).toBe(0);
+  });
+
+  it('combines production and consumption for the same fluid', () => {
+    // Water extractor produces Water, refinery consumes Water
+    const buildings = [
+      makeBuilding({
+        Name: 'Water Extractor',
+        ClassName: 'Desc_WaterPump_C',
+        production: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentProd: 120, MaxProd: 120, ProdPercent: 100 }],
+      }),
+      makeBuilding({
+        Name: 'Refinery',
+        ClassName: 'Desc_Refinery_C',
+        ingredients: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentConsumed: 80, MaxConsumed: 120, ConsPercent: 66 }],
+      }),
+    ];
+    const result = mergeBuildingFluids([], buildings);
+    expect(result).toHaveLength(1);
+    expect(result[0].CurrentProd).toBe(120);
+    expect(result[0].MaxProd).toBe(120);
+    expect(result[0].CurrentConsumed).toBe(80);
+    expect(result[0].MaxConsumed).toBe(120);
+  });
+
+  it('includes both fluids from buildings that produce and consume different fluids', () => {
+    // Refinery consuming Water and producing Fuel
+    const refinery = makeBuilding({
+      production: [{ Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 50, MaxProd: 100, ProdPercent: 50 }],
+      ingredients: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentConsumed: 100, MaxConsumed: 120, ConsPercent: 83 }],
+    });
+    const result = mergeBuildingFluids([], [refinery]);
+    expect(result).toHaveLength(2);
+    const fuel = result.find((i) => i.ClassName === 'Desc_LiquidFuel_C')!;
+    expect(fuel.CurrentProd).toBe(50);
+    expect(fuel.CurrentConsumed).toBe(0);
+    const water = result.find((i) => i.ClassName === 'Desc_Water_C')!;
+    expect(water.CurrentProd).toBe(0);
+    expect(water.CurrentConsumed).toBe(100);
+  });
+
+  it('skips non-fluid items in production and ingredients', () => {
+    const refinery = makeBuilding({
+      production: [
+        { Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 50, MaxProd: 100, ProdPercent: 50 },
+        { Name: 'Coal', ClassName: 'Desc_Coal_C', CurrentProd: 30, MaxProd: 60, ProdPercent: 50 },
+      ],
+      ingredients: [
+        { Name: 'Water', ClassName: 'Desc_Water_C', CurrentConsumed: 100, MaxConsumed: 120, ConsPercent: 83 },
+        { Name: 'Iron Ore', ClassName: 'Desc_OreIron_C', CurrentConsumed: 60, MaxConsumed: 60, ConsPercent: 100 },
+      ],
+    });
+    const result = mergeBuildingFluids([], [refinery]);
+    expect(result).toHaveLength(2);
+    expect(result.every((i) => isFluidClassName(i.ClassName))).toBe(true);
+  });
+
+  it('returns items unchanged when buildings is null', () => {
+    const items: ProdStatItem[] = [
+      { Name: 'Cable', ClassName: 'Desc_Cable_C', CurrentProd: 10, MaxProd: 20, CurrentConsumed: 0, MaxConsumed: 0, ProdPerMin: '', ProdPercent: 50, ConsPercent: 0 },
+    ];
+    const result = mergeBuildingFluids(items, null);
+    expect(result).toEqual(items);
+  });
+
+  it('returns items unchanged when buildings is empty', () => {
+    const items: ProdStatItem[] = [
+      { Name: 'Cable', ClassName: 'Desc_Cable_C', CurrentProd: 10, MaxProd: 20, CurrentConsumed: 0, MaxConsumed: 0, ProdPerMin: '', ProdPercent: 50, ConsPercent: 0 },
+    ];
+    const result = mergeBuildingFluids(items, []);
+    expect(result).toEqual(items);
+  });
+
+  it('handles null items gracefully', () => {
+    const refinery = makeBuilding({
+      production: [{ Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 50, MaxProd: 100, ProdPercent: 50 }],
+    });
+    const result = mergeBuildingFluids(null, [refinery]);
+    expect(result).toHaveLength(1);
+  });
+
+  it('preserves original items when no fluid buildings match', () => {
+    const items: ProdStatItem[] = [
+      { Name: 'Cable', ClassName: 'Desc_Cable_C', CurrentProd: 10, MaxProd: 20, CurrentConsumed: 0, MaxConsumed: 0, ProdPerMin: '', ProdPercent: 50, ConsPercent: 0 },
+    ];
+    const building = makeBuilding({
+      production: [{ Name: 'Coal', ClassName: 'Desc_Coal_C', CurrentProd: 30, MaxProd: 60, ProdPercent: 50 }],
+      ingredients: [{ Name: 'Iron Ore', ClassName: 'Desc_OreIron_C', CurrentConsumed: 60, MaxConsumed: 60, ConsPercent: 100 }],
+    });
+    const result = mergeBuildingFluids(items, [building]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(items[0]);
+  });
+
+  it('sets ProdPercent to average across producing buildings only', () => {
+    const buildings = [
+      makeBuilding({
+        production: [{ Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 25, MaxProd: 100, ProdPercent: 25 }],
+      }),
+      makeBuilding({
+        production: [{ Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 75, MaxProd: 100, ProdPercent: 75 }],
+      }),
+    ];
+    const result = mergeBuildingFluids([], buildings);
+    expect(result[0].ProdPercent).toBe(50);
+  });
+
+  it('merges extractor and refinery data together', () => {
+    // Simulate the real-world case: an extractor produces Water,
+    // a refinery consumes it and produces Fuel.
+    const buildings: FactoryBuilding[] = [
+      makeBuilding({
+        Name: 'Water Extractor',
+        ClassName: 'Desc_WaterPump_C',
+        production: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentProd: 120, MaxProd: 120, ProdPercent: 100 }],
+      }),
+      makeBuilding({
+        Name: 'Fuel Refinery',
+        ClassName: 'Desc_Refinery_C',
+        production: [{ Name: 'Fuel', ClassName: 'Desc_LiquidFuel_C', CurrentProd: 30, MaxProd: 60, ProdPercent: 50 }],
+        ingredients: [{ Name: 'Water', ClassName: 'Desc_Water_C', CurrentConsumed: 100, MaxConsumed: 120, ConsPercent: 83 }],
+      }),
+    ];
+    const result = mergeBuildingFluids([], buildings);
+    expect(result).toHaveLength(2);
+
+    const water = result.find((i) => i.ClassName === 'Desc_Water_C')!;
+    expect(water.CurrentProd).toBe(120);
+    expect(water.CurrentConsumed).toBe(100);
+
+    const fuel = result.find((i) => i.ClassName === 'Desc_LiquidFuel_C')!;
+    expect(fuel.CurrentProd).toBe(30);
+    expect(fuel.CurrentConsumed).toBe(0);
   });
 });

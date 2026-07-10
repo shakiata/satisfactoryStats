@@ -6,7 +6,7 @@ This diagram covers all state architecture in Statusfactory: the four persistenc
 graph TD
     subgraph "localStorage"
         LS_CONFIG["frm-config<br/>{ host, port, password, refreshRate }"]
-        LS_SETTINGS["frm-app-settings<br/>{ iconSize, mapIconScale,<br/>  activeTab, timeWindow,<br/>  mapVisibleLayers, themeMode }"]
+        LS_SETTINGS["frm-app-settings<br/>{ iconSize,<br/>  activeTab, timeWindow,<br/>  themeMode }"]
         LS_THEME["frm-theme<br/>{ bgPrimary, bgSecondary, bgCard,<br/>  borderColor, textPrimary, textSecondary,<br/>  accent, accentHover,<br/>  success, danger, info, muted }"]
     end
 

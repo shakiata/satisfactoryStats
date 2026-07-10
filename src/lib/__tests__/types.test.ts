@@ -23,10 +23,8 @@ describe('DEFAULT_SETTINGS', () => {
     const requiredKeys: (keyof AppSettings)[] = [
       'themeMode',
       'iconSize',
-      'mapIconScale',
       'activeTab',
       'timeWindow',
-      'mapVisibleLayers',
     ];
     for (const key of requiredKeys) {
       expect(DEFAULT_SETTINGS).toHaveProperty(key);
@@ -37,11 +35,6 @@ describe('DEFAULT_SETTINGS', () => {
     expect(['sm', 'md', 'lg']).toContain(DEFAULT_SETTINGS.iconSize);
   });
 
-  it('has mapIconScale within valid range', () => {
-    expect(DEFAULT_SETTINGS.mapIconScale).toBeGreaterThanOrEqual(0.5);
-    expect(DEFAULT_SETTINGS.mapIconScale).toBeLessThanOrEqual(2.0);
-  });
-
   it('has a non-empty activeTab', () => {
     expect(DEFAULT_SETTINGS.activeTab).toBeTruthy();
     expect(typeof DEFAULT_SETTINGS.activeTab).toBe('string');
@@ -50,13 +43,6 @@ describe('DEFAULT_SETTINGS', () => {
   it('has timeWindow as a non-negative number', () => {
     expect(DEFAULT_SETTINGS.timeWindow).toBeGreaterThanOrEqual(0);
     expect(Number.isFinite(DEFAULT_SETTINGS.timeWindow)).toBe(true);
-  });
-
-  it('mapVisibleLayers contains expected default layers', () => {
-    expect(DEFAULT_SETTINGS.mapVisibleLayers).toContain('factory');
-    expect(DEFAULT_SETTINGS.mapVisibleLayers).toContain('generator');
-    expect(DEFAULT_SETTINGS.mapVisibleLayers).toContain('extractor');
-    expect(DEFAULT_SETTINGS.mapVisibleLayers).toContain('player');
   });
 
   it('themeMode defaults to dark', () => {

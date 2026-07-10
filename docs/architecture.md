@@ -18,7 +18,7 @@ graph TD
         PAGE["page.tsx<br/>Tab router + state"]
         HOOKS["Hooks<br/>useConfig / useTheme / useTimeBuffer"]
         API["api.ts<br/>buildUrl / fetchEndpoint"]
-        COMPONENTS["14 Components<br/>12 tabs + 3 shared"]
+        COMPONENTS["13 Components<br/>11 tabs + 2 shared"]
         LIBS["Shared libs<br/>formatters colors names"]
         GLOBALS["globals.css<br/>CSS custom properties"]
     end
@@ -131,8 +131,7 @@ satisfactoryStats/
 │   │   └── dashboard/
 │   │       ├── ChatPanel.tsx
 │   │       ├── FactoryEfficiency.tsx
-│   │       ├── FactoryMap.tsx
-    │       ├── FluidDashboard.tsx
+│   │       ├── FluidDashboard.tsx
     │       ├── GeneratorStatus.tsx
     │       ├── InventoryPanel.tsx
     │       ├── PlayerMap.tsx
@@ -168,5 +167,5 @@ satisfactoryStats/
 - **Time-series averaging** is handled by `useTimeBuffer` — each panel can average metrics over 1m–1h windows.
 - **Theme is CSS custom properties** injected at `:root` level, not Tailwind config or CSS-in-JS.
 - **Icons** are PNG files in `public/Icons/` matched by `ClassName` property from FRM responses.
-- **Canvas 2D** is used for `FactoryMap` and `TrainControlTower` track map for high-performance rendering.
+- **Canvas 2D** is used for `TrainControlTower` track map for high-performance rendering.
 - **ngrok sharing** is available in the Electron build via IPC — spawns a tunnel process and exposes the public URL.

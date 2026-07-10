@@ -22,7 +22,6 @@ Hub and index for all project documentation. Organized by conceptual layer so bo
 | [components/power-dashboard.md](./components/power-dashboard.md)         | PowerDashboard panel                                                                                 |
 | [components/production-monitor.md](./components/production-monitor.md)   | ProductionMonitor panel                                                                              |
 | [components/factory-efficiency.md](./components/factory-efficiency.md)   | FactoryEfficiency panel                                                                              |
-| [components/factory-map.md](./components/factory-map.md)                 | FactoryMap panel                                                                                     |
 | [components/generator-status.md](./components/generator-status.md)       | GeneratorStatus panel                                                                                |
 | [components/inventory-panel.md](./components/inventory-panel.md)         | InventoryPanel                                                                                       |
 | [components/player-map.md](./components/player-map.md)                   | PlayerMap panel                                                                                      |

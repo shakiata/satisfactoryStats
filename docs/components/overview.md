@@ -10,11 +10,10 @@ All UI components live under `src/components/`. They are React 19 Client Compone
 page.tsx (tab router)
 ├── ConnectionBar           ← Always visible (connection management)
 ├── TimeWindowSelector      ← Visible when connected (shared across tabs)
-└── [active tab component]  ← One of 13 tab panels
+└── [active tab component]  ← One of 12 tab panels
     ├── PowerDashboard
     ├── ProductionMonitor
     ├── FactoryEfficiency
-    ├── FactoryMap
     ├── GeneratorStatus
     ├── ResourceTracker
     ├── InventoryPanel
@@ -75,7 +74,7 @@ When `timeWindow` is `0`, the panel shows live (current) data. When set to e.g. 
 
 ### Icon Loading
 
-Panels that display item/building icons (ProductionMonitor, InventoryPanel, FactoryMap) load PNGs from `./Icons/{ClassName}.png`. The pattern:
+Panels that display item/building icons (ProductionMonitor, InventoryPanel) load PNGs from `./Icons/{ClassName}.png`. The pattern:
 
 ```tsx
 const [imgSrc, setImgSrc] = useState<string | null>(null);
@@ -110,7 +109,6 @@ const TABS = [
   { id: "factory", label: "🏭 Factory", icon: "🏭" },
   { id: "resources", label: "⛏️ Resources", icon: "⛏️" },
   { id: "generators", label: "🔥 Generators", icon: "🔥" },
-  { id: "map", label: "🗺️ Map", icon: "🗺️" },
   { id: "trains", label: "🚂 Trains", icon: "🚂" },
   { id: "inventory", label: "📦 Inventory", icon: "📦" },
   { id: "fluids", label: "💧 Fluids", icon: "💧" },
@@ -137,5 +135,5 @@ Before a successful connection, the dashboard shows a welcome/instructions scree
 2. **No inline `<style>` tags or `style={{}}` with hardcoded values** — always reference `theme` from `useTheme()`.
 3. **No per-component CSS files** — use Tailwind utility classes for layout, CSS custom properties for colors.
 4. **Extract shared logic into hooks** — if two panels need the same fetch pattern, add to `lib/`.
-5. **Canvas components** (`FactoryMap`, `TrainControlTower` track map) use `requestAnimationFrame` loops and handle `devicePixelRatio` for sharp rendering.
+5. **Canvas components** (`TrainControlTower` track map) use `requestAnimationFrame` loops and handle `devicePixelRatio` for sharp rendering.
 6. **Polling intervals** respect `config.refreshRate` — don't hardcode fetch frequencies.

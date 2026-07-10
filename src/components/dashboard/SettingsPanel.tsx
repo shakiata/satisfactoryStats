@@ -133,8 +133,7 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
   );
 
   const isSettingsDefault =
-    settings.iconSize === DEFAULT_SETTINGS.iconSize &&
-    settings.mapIconScale === DEFAULT_SETTINGS.mapIconScale;
+    settings.iconSize === DEFAULT_SETTINGS.iconSize;
 
   const RATE_OPTIONS = [
     { value: 1000, label: '1s' },
@@ -272,30 +271,6 @@ export function SettingsPanel({ config, saveConfig, settings, saveSettings }: Se
                 </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* Map Icon Scale */}
-        <div className="flex items-center justify-between py-2">
-          <div>
-            <p className="text-sm" style={{ color: theme.textPrimary }}>Map Icon Scale</p>
-            <p className="text-xs" style={{ color: theme.textSecondary }}>Size of building icons on the Factory Map</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={settings.mapIconScale}
-              onChange={(e) => saveSettings({ mapIconScale: parseFloat(e.target.value) })}
-              className="w-24 h-1.5 rounded-full appearance-none cursor-pointer"
-              style={{
-                background: `linear-gradient(to right, ${theme.accent} 0%, ${theme.accent} ${((settings.mapIconScale - 0.5) / 1.5) * 100}%, ${theme.borderColor} ${((settings.mapIconScale - 0.5) / 1.5) * 100}%, ${theme.borderColor} 100%)`,
-                accentColor: theme.accent,
-              }}
-            />
-            <span className="text-xs font-mono w-8 text-right" style={{ color: theme.textPrimary }}>{settings.mapIconScale.toFixed(1)}x</span>
           </div>
         </div>
 

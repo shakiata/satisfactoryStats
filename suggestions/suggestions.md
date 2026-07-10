@@ -127,7 +127,7 @@ Option 1 is simpler and reduces bundle size. Option 2 preserves the explorer's c
 
 **Priority:** P1
 
-**What:** If the user opens `GeneratorStatus` and `FactoryMap` simultaneously (or switches between them quickly), both components independently poll `getGenerators` — resulting in duplicate HTTP requests to the FRM server.
+**What:** If the user opens `GeneratorStatus` and another component simultaneously (or switches between them quickly), both components independently poll `getGenerators` — resulting in duplicate HTTP requests to the FRM server.
 
 **Why:** Wastes bandwidth, increases server load on the FRM mod, and can cause race conditions where one component renders stale data while the other gets fresh data. The FRM mod runs inside Satisfactory and every request has some game-thread cost.
 
@@ -225,7 +225,7 @@ Components create an `AbortController` in their `useEffect` and pass `controller
 
 **What:** Each dashboard component runs its own `setInterval(fetchData, N)` in a `useEffect`. There are 10+ components, each polling at different rates (3s for chat, 5s for power/players, 8s for generators, 10s for resources).
 
-**Why:** Polling intervals drift independently, causing bursts of simultaneous requests. Components polling the same endpoint (e.g., `FactoryMap` and `GeneratorStatus` both poll `getGenerators`) issue duplicate requests at different times. No way to globally pause/resume polling when the connection is lost. No way to batch related endpoints into a single request.
+**Why:** Polling intervals drift independently, causing bursts of simultaneous requests. Components polling the same endpoint (e.g., `GeneratorStatus` and other components both poll `getGenerators`) issue duplicate requests at different times. No way to globally pause/resume polling when the connection is lost. No way to batch related endpoints into a single request.
 
 **How:** Create a centralized poll registry hook or context:
 
@@ -354,29 +354,7 @@ This reduces 3 render passes to 1. However, this is a significant refactor touch
 
 ## D. Component Design
 
-### D1: `FactoryMap.tsx` uses raw Canvas API with manual render loop
-
-**Priority:** P1
-
-**What:** `FactoryMap.tsx` manages a `<canvas>` element with manual `requestAnimationFrame` rendering, raw mouse event handlers for pan/zoom, an in-memory `iconCache` for PNG loading, and manual coordinate transforms (`worldToMap` → `mapToScreen`). It's ~400+ lines of imperative canvas code inside a React component.
-
-**Why:** The raw Canvas approach works but is brittle. Every map interaction requires manually computing which icon was clicked, manually redrawing the entire canvas, and manually managing image loading states. Adding new features (clustering, heatmaps, minimap) would require significant rework. The code is hard to test because it's entirely imperative.
-
-**How:** Three options, in order of effort:
-
-1. **Extract canvas logic into a custom hook** (`useFactoryMap`) that encapsulates the canvas ref, pan/zoom state, coordinate transforms, and icon loading. The React component becomes a thin wrapper that passes data to the hook. This is the lowest-effort improvement and keeps the Canvas approach.
-
-2. **Use a 2D rendering library** like PixiJS or Konva. These handle hit testing, layering, and image caching natively. Konva has a React binding (`react-konva`) that would make the map declarative.
-
-3. **Replace with a WebGL map** using deck.gl or MapLibre for future-proofing (clustering, heatmaps, terrain overlay).
-
-Recommendation: start with option 1 (extract hook), then evaluate option 2 if the map needs more features.
-
-**Files:** `src/components/dashboard/FactoryMap.tsx`
-
----
-
-### D2: `ItemIcon` duplicates `nameToColor` from `colors.ts`
+### D1: `ItemIcon` duplicates `nameToColor` from `colors.ts`
 
 **Priority:** P2
 
@@ -390,7 +368,7 @@ Recommendation: start with option 1 (extract hook), then evaluate option 2 if th
 
 ---
 
-### D3: `ItemIcon` duplicates `cleanName`-like logic from `names.ts`
+### D2: `ItemIcon` duplicates `cleanName`-like logic from `names.ts`
 
 **Priority:** P2
 
@@ -413,7 +391,7 @@ Use it in `ItemIcon.tsx` and anywhere else that does this (e.g., `InventoryPanel
 
 ---
 
-### D4: Repeated dashboard pattern — summary cards + accordion + search + time-window
+### D3: Repeated dashboard pattern — summary cards + accordion + search + time-window
 
 **Priority:** P2
 
@@ -443,7 +421,7 @@ Each specific dashboard becomes a thin wrapper that fetches data + defines `rend
 
 ---
 
-### D5: `SettingsPanel.tsx` is ~400+ lines — split into sub-components
+### D4: `SettingsPanel.tsx` is ~400+ lines — split into sub-components
 
 **Priority:** P2
 
@@ -487,38 +465,7 @@ const endpointsByCategory = getEndpointsByCategory();
 
 ---
 
-### E2: `FactoryMap` canvas re-renders every animation frame regardless of data changes
-
-**Priority:** P1
-
-**What:** The canvas `requestAnimationFrame` loop runs continuously, clearing and redrawing the entire map every ~16ms — including the background map image, all icons, all players, and the scale bar — even when the user isn't interacting and no data has changed.
-
-**Why:** Continuous rendering wastes GPU and CPU, especially on battery-powered laptops. The map image alone is large (8192×8192 source) and drawing it every frame is expensive. When the user is idle, the frame loop should stop.
-
-**How:** Use a dirty flag pattern:
-
-```ts
-const needsRedraw = useRef(true);
-
-// Mark dirty on data change, pan, zoom, or layer toggle
-useEffect(() => { needsRedraw.current = true; }, [data, panOffset, zoom, visibleLayers]);
-
-// Only draw when dirty, then clear flag
-const renderLoop = useCallback(() => {
-  if (!needsRedraw.current) { animFrameRef.current = requestAnimationFrame(renderLoop); return; }
-  // ... draw everything ...
-  needsRedraw.current = false;
-  animFrameRef.current = requestAnimationFrame(renderLoop);
-}, [...]);
-```
-
-Optionally, pause the loop entirely when the tab is not visible (`document.hidden`).
-
-**Files:** `src/components/dashboard/FactoryMap.tsx`
-
----
-
-### E3: No virtualization for long lists
+### E2: No virtualization for long lists
 
 **Priority:** P2
 
@@ -537,7 +484,7 @@ For the accordion-grouped lists (`ResourceTracker`, `FluidDashboard`), use a vir
 
 ---
 
-### E4: Missing `useMemo`/`useCallback` on inline handlers in `page.tsx`
+### E3: Missing `useMemo`/`useCallback` on inline handlers in `page.tsx`
 
 **Priority:** P3
 

@@ -421,10 +421,8 @@ Persistent UI preferences stored in localStorage as `frm-app-settings`.
 interface AppSettings {
   themeMode: "dark" | "light"; // Color mode (default: "dark")
   iconSize: "sm" | "md" | "lg"; // Production/Inventory card icon size
-  mapIconScale: number; // Map icon scale (0.5–2.0)
   activeTab: string; // Last active dashboard tab
   timeWindow: number; // Last selected time window (ms, 0 = live)
-  mapVisibleLayers: string[]; // Visible layers on Factory Map
 }
 ```
 
@@ -434,10 +432,8 @@ interface AppSettings {
 const DEFAULT_SETTINGS: AppSettings = {
   themeMode: "dark",
   iconSize: "md",
-  mapIconScale: 1,
   activeTab: "power",
   timeWindow: 0,
-  mapVisibleLayers: ["factory", "generator", "extractor", "player"],
 };
 ```
 

@@ -14,7 +14,7 @@ import { useTheme } from '@/lib/useTheme';
 import { useTimeBuffer, averageProdStats } from '@/lib/useTimeBuffer';
 import { TIME_WINDOWS, type TimeWindowMs } from '@/components/TimeWindowSelector';
 import { formatNumber } from '@/lib/formatters';
-import { getFluidSummaries, traceRawMaterials, mergeExtractorFluids } from '@/lib/fluids';
+import { getFluidSummaries, traceRawMaterials, mergeBuildingFluids } from '@/lib/fluids';
 import type { FluidSummary, RawMaterialLink, FluidMachineEntry, RawRecipe } from '@/lib/fluids';
 
 interface Props {
@@ -177,23 +177,24 @@ export function FluidDashboard({ config, timeWindow }: Props) {
 
   // Recipe data for raw material tracing
   const [recipes, setRecipes] = useState<RawRecipe[] | null>(null);
+  const [recipesError, setRecipesError] = useState<string | null>(null);
 
   // Factory buildings for per-machine breakdown
   const [machines, setMachines] = useState<FactoryBuilding[] | null>(null);
-  const [extractors, setExtractors] = useState<Extractor[] | null>(null);
   const machinesLoaded = useRef(false);
 
   // Infrastructure counts
   const [pipeCount, setPipeCount] = useState<number | null>(null);
   const [pumpCount, setPumpCount] = useState<number | null>(null);
 
-  /** Merge getProdStats items with fluid entries from getExtractor.
-   *  FRM reports fluid production (Water, Crude Oil) via getExtractor,
-   *  not getProdStats.  Placed before useTimeBuffer so the buffer
-   *  captures extractor fluids too. */
+  /** Merge getProdStats items with fluid production+consumption entries
+   *  from all fluid-handling buildings (refineries, blenders, packagers,
+   *  extractors).  FRM omits ALL pipeline fluids from getProdStats, so
+   *  this synthesizes them from per-building data.  Placed before
+   *  useTimeBuffer so the buffer captures building-sourced fluids too. */
   const allItems: ProdStatItem[] = useMemo(
-    () => mergeExtractorFluids(items, extractors),
-    [items, extractors],
+    () => mergeBuildingFluids(items, machines),
+    [items, machines],
   );
 
   // Time-series buffer — fed allItems so extractor fluids appear in historical windows
@@ -241,8 +242,10 @@ export function FluidDashboard({ config, timeWindow }: Props) {
       // uses synchronous isFluidClassName() and does not need recipes.
       const data = await fetchEndpoint<RawRecipe[]>(config, 'getRecipes');
       setRecipes(data);
-    } catch {
-      // Recipe data is optional
+      setRecipesError(null);
+    } catch (e) {
+      setRecipes(null);
+      setRecipesError(e instanceof Error ? e.message : 'Failed to load recipes');
     }
   }, [config]);
 
@@ -278,7 +281,6 @@ export function FluidDashboard({ config, timeWindow }: Props) {
       ];
 
       setMachines(allMachines);
-      setExtractors(extractorData);
       machinesLoaded.current = true;
     } catch {
       // Machine data is supplemental
@@ -313,8 +315,8 @@ export function FluidDashboard({ config, timeWindow }: Props) {
   /* ── Derived data ──────────────────────────────────────── */
 
   /** Compute display summaries over the selected time window.
-   *  Uses allItems (getProdStats + extractor fluids) as the data source
-   *  so that Water, Crude Oil, and other extractor-only fluids appear. */
+   *  Uses allItems (getProdStats + building-sourced fluids) as the data
+   *  source so that all pipeline fluids appear. */
   const displaySummaries: FluidSummary[] = useMemo(() => {
     if (timeWindow === 0 || !allItems.length) {
       return getFluidSummaries(allItems as unknown as ProdStatSnapshot[], undefined, worldInv ?? undefined);
@@ -733,8 +735,17 @@ export function FluidDashboard({ config, timeWindow }: Props) {
                       </div>
                     )}
 
-                    {/* Raw material trace */}
-                    {recipes && !showRawTrace && (
+                    {/* Raw material trace / recipe error */}
+                    {recipesError && (
+                      <div className="rounded-lg p-3 text-center" style={{ backgroundColor: theme.danger + '18', border: `1px solid ${theme.danger}33` }}>
+                        <p className="text-[10px] font-medium" style={{ color: theme.danger }}>Recipe data unavailable</p>
+                        <p className="text-[9px] mt-1" style={{ color: theme.textSecondary }}>{recipesError}</p>
+                        <button onClick={fetchRecipes} className="text-[9px] mt-1.5 underline cursor-pointer" style={{ color: theme.accent }}>
+                          Retry
+                        </button>
+                      </div>
+                    )}
+                    {!recipesError && recipes && !showRawTrace && (
                       <button
                         onClick={() => setShowRawTrace(true)}
                         className="text-xs underline cursor-pointer"
@@ -765,7 +776,7 @@ export function FluidDashboard({ config, timeWindow }: Props) {
                         </div>
                       </div>
                     )}
-                    {showRawTrace && rawMaterials.length === 0 && (
+                    {!recipesError && showRawTrace && rawMaterials.length === 0 && (
                       <p className="text-[10px] italic" style={{ color: theme.textSecondary }}>
                         No raw material trace available — this fluid may be directly extracted
                         (e.g., Water, Crude Oil) or recipe data is unavailable.
